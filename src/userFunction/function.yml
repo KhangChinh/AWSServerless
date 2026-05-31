@@ -1,0 +1,16 @@
+getUser:
+  handler: src/userFunction/userService.handleGetUser
+  events:
+    - httpApi:
+        path: /get-user
+        method: get
+        authorizer:
+          name: myCognitoAuth
+
+postConfirmUser:
+  handler: src/userFunction/userService.handleInitUser
+  events:
+    - cognitoUserPool:
+        pool: User pool - diktu
+        trigger: PostConfirmation
+        existing: true

@@ -1,0 +1,8 @@
+{
+    "PK": "shop",
+    "SK": "item#theme_cyberpunk",
+    "name": "Theme Cyberpunk",
+    "itemType": "theme",
+    "currencyType": "gems",
+    "basePrice": 500
+}

@@ -1,0 +1,15 @@
+{
+    "PK": "usr_12345",
+    "SK": "daily#2026-05-30",
+    "quests": {
+        "focus_30": {
+            "progress": 15,
+            "isClaimed": false
+        },
+        "play_2_sudoku": {
+            "progress": 1,
+            "isClaimed": false
+        }
+    },
+    "isAllClaimed": false
+}

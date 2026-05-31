@@ -1,0 +1,32 @@
+service: aws-uchimi
+useDotenv: true
+provider:
+  name: aws
+  runtime: nodejs24.x
+  region: ap-southeast-1 
+  environment:
+    TABLE_NAME: ${env:TABLE_NAME}
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Query
+          Resource: "arn:aws:dynamodb:${self:provider.region}:*:table/${env:TABLE_NAME}"
+  httpApi:
+    cors: true
+    authorizers:
+      myCognitoAuth:
+        type: jwt
+        identitySource: $request.header.Authorization
+        issuerUrl: https://cognito-idp.${self:provider.region}.amazonaws.com/${env:COGNITO_USER_POOL_ID}
+        audience:
+          - ${env:COGNITO_CLIENT_ID}
+
+functions:
+  - ${file(./src/userFunction/function.yml)}

@@ -1,0 +1,10 @@
+{
+    "PK": "usr_12345",
+    "SK": "session#20260529T190000Z",
+    "mode": "rank",
+    "startTime": 1717009200,
+    "endTime": 1717012800,
+    "durationMinutes": 60,
+    "status": "COMPLETED",
+    "expiresAt": 1719601200
+}
