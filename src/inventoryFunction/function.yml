@@ -1,0 +1,17 @@
+getInventory:
+  handler: src/inventoryFunction/inventoryService.handleGetInventory
+  events:
+    - httpApi:
+        path: /get-inventory
+        method: get
+        authorizer:
+          name: myCognitoAuth
+
+# grantItem:
+#   handler: src/inventoryFunction/inventoryService.handleGrantItem
+#   events:
+#     - httpApi:
+#         path: /grant-item
+#         method: post
+#         authorizer:
+#           name: myCognitoAuth

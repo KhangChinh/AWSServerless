@@ -11,6 +11,33 @@ postConfirmUser:
   handler: src/userFunction/userService.handleInitUser
   events:
     - cognitoUserPool:
-        pool: User pool - diktu
+        pool: ${env:USER_POOL_NAME}
         trigger: PostConfirmation
         existing: true
+
+getProfile:
+  handler: src/userFunction/userService.handleGetProfile
+  events:
+    - httpApi:
+        path: /get-profile
+        method: get
+        authorizer:
+          name: myCognitoAuth
+
+updateProfile:
+  handler: src/userFunction/userService.handleUpdateProfile
+  events:
+    - httpApi:
+        path: /update-profile
+        method: put
+        authorizer:
+          name: myCognitoAuth
+
+equipCosmetics:
+  handler: src/userFunction/userService.handleEquipCosmetics
+  events:
+    - httpApi:
+        path: /change-cosmetics
+        method: put
+        authorizer:
+          name: myCognitoAuth
