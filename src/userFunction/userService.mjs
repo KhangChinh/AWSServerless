@@ -14,7 +14,7 @@ const handleGetUser = async (event) => {
         const result = await docClient.send(new GetCommand({
             TableName: process.env.TABLE_NAME,
             Key: {
-                PK: userId,
+                PK: `usr_${userId}`,
                 SK: "profile"
             }
         }));
@@ -39,7 +39,7 @@ const handleInitUser = async (event) => {
     const params = {
         TableName: process.env.TABLE_NAME,
         Item: {
-            PK: userId,
+            PK: `usr_${userId}`,
             SK: "profile",
             information: {
                 email: email,

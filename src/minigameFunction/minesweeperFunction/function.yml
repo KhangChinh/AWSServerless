@@ -1,0 +1,25 @@
+playGame:
+  handler: src/minigameFunction/minesweeperFunction/playGame.handler
+  timeout: 30
+  memorySize: 512
+  environment:
+    TABLE_NAME: ${self:service}-${self:provider.stage}
+  events:
+    - httpApi:
+        path: /minigame/minesweeper/play
+        method: post
+        authorizer:
+          name: myCognitoAuth
+
+submitGame:
+  handler: src/minigameFunction/minesweeperFunction/submitGame.handler
+  timeout: 30
+  memorySize: 512
+  environment:
+    TABLE_NAME: ${self:service}-${self:provider.stage}
+  events:
+    - httpApi:
+        path: /minigame/minesweeper/submit
+        method: post
+        authorizer:
+          name: myCognitoAuth

@@ -55,14 +55,14 @@ StartTime lấy trong active_game.json, EndTime sẽ lấy từ hàm newDate() b
 
 ## Luồng xử lý
 1. User bấm Play.
-2. Server tạo seed mới cho session này.
-3. Server lưu seed + thời gian bắt đầu vào `active_game.json`.
-4. Server trả config level và seed về client.
-5. Client dựng board từ `baseMapConfig` và seed.
+2. Server tạo seed + solution grid cho session này.
+3. Server lưu seed + solution grid + thời gian bắt đầu vào `active_game.json` để xác định user đang active game.
+4. Server trả `baseMapConfig` + `seed` về client.
+5. Client dựng board từ `baseMapConfig` và `seed`.
 6. Client chơi local và ghi lại `actionLogs`.
 7. Client chỉ hiển thị realtime score và số mìn còn lại ở local.
 8. Khi số mìn còn lại về `0`, client gửi packet thắng lên server.
-9. Server đọc `active_game.json` và dựng lại đúng board từ seed đã lưu.
+9. Server đọc `active_game.json` theo user để dựng lại đúng board từ seed đã lưu.
 10. Server validate:
    - `finalGrid` có khớp kết quả board mong đợi hoặc hash hay không
    - thời điểm trong `actionLogs` có dấu hiệu bất thường hay không
@@ -82,7 +82,8 @@ Trong đó:
 Sau đó server cộng điểm và thưởng entertainCoin.
 12. Server cập nhật `score.json` và `inventory.json`.
 13. Nếu level đã tồn tại, chỉ update khi `personalBest` tốt hơn.
-14. Server xóa `active_game.json` sau khi hoàn tất.
+14. Server gửi kết quả về client.
+15. Server xóa `active_game.json` của user sau khi hoàn tất.
 
 ## Luật validate
 - Seed chỉ được tồn tại trong `active_game.json`.
