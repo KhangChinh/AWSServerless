@@ -1,8 +1,9 @@
 {
     "PK": "shop",
-    "SK": "item#theme_cyberpunk",
+    "SK": "theme_cyberpunk",
+    "rariry": "5-star",
     "name": "Theme Cyberpunk",
     "itemType": "theme",
-    "currencyType": "gems",
+    "currencyType": "entainCoin",
     "basePrice": 500
 }

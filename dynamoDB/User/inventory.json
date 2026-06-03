@@ -2,23 +2,54 @@
     "PK": "usr_12345",
     "SK": "inventory",
     "themes": [
-        "default_light",
-        "default_dark",
-        "cyberpunk_2077"
+        {
+            "itemId": "default_light",
+            "acquiredAt": "2026-01-01T00:00:00Z"
+        },
+        {
+            "itemId": "cyberpunk_2077",
+            "acquiredAt": "2026-06-03T11:15:00Z"
+        }
     ],
     "frames": [
-        "default",
-        "gold_border"
+        {
+            "itemId": "default",
+            "acquiredAt": "2026-01-01T00:00:00Z"
+        },
+        {
+            "itemId": "gold_border",
+            "acquiredAt": "2026-06-03T11:20:00Z"
+        }
+    ],
+    "titles": [
+        {
+            "itemId": "default",
+            "acquiredAt": "2026-01-01T00:00:00Z"
+        },
+        {
+            "itemId": "novice_learner",
+            "acquiredAt": "2026-05-10T08:30:00Z"
+        }
     ],
     "minigames": {
         "sudoku": [
-            "default1",
-            "default2",
-            "hard_1"
+            {
+                "levelId": "default1",
+                "personalBest": 150,
+                "achievedAt": "2026-06-03T11:45:00Z"
+            },
+            {
+                "levelId": "hard_1",
+                "personalBest": 345,
+                "achievedAt": "2026-06-03T11:50:00Z"
+            }
         ],
         "minesweeper": [
-            "easy_1",
-            "easy_2"
+            {
+                "levelId": "easy_1",
+                "personalBest": 45,
+                "achievedAt": "2026-06-01T09:00:00Z"
+            }
         ]
     }
 }

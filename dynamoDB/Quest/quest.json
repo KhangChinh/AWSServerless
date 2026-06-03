@@ -4,5 +4,5 @@
     "name": "Tập trung cao độ",
     "description": "Hoàn thành 30 phút bấm giờ Focus.",
     "target": 30,
-    "rewardGems": 5
+    "rewardPoint": 150
 }

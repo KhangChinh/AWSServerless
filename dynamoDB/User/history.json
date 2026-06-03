@@ -1,0 +1,16 @@
+{
+    "PK": "usr_12345",
+    "SK": "history",
+    "details": [
+        {
+            "rarity": "3-star",
+            "name": "Theme Cyberpunk",
+            "acquiredAt": "2026-06-03T11:16:29Z"
+        },
+        {
+            "rarity": "4-star",
+            "name": "UIA - Bibilabu",
+            "acquiredAt": "2026-04-03T11:16:29Z"
+        }
+    ]
+}

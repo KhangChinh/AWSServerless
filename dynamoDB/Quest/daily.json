@@ -9,7 +9,10 @@
         "play_2_sudoku": {
             "progress": 1,
             "isClaimed": false
+        },
+        "complete_all_daily": {
+            "progress": 0,
+            "isClaimed": false
         }
-    },
-    "isAllClaimed": false
+    }
 }
