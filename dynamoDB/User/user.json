@@ -24,6 +24,7 @@
     },
     "equippedCosmetics": {
         "equippedTheme": "cyberpunk_2077",
-        "equippedFrame": "gold_border"
+        "equippedFrame": "gold_border",
+        "equippedTitle": "novice_learner"
     }
 }
