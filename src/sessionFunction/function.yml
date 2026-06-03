@@ -1,0 +1,26 @@
+startSession:
+  handler: src/sessionFunction/sessionService.handleStartSession
+  events:
+    - httpApi:
+        path: /start-session
+        method: post
+        authorizer:
+          name: myCognitoAuth
+
+recordStrike:
+  handler: src/sessionFunction/sessionService.handleRecordStrike
+  events:
+    - httpApi:
+        path: /strike
+        method: post
+        authorizer:
+          name: myCognitoAuth
+
+endSession:
+  handler: src/sessionFunction/sessionService.handleEndSession
+  events:
+    - httpApi:
+        path: /end-session
+        method: post
+        authorizer:
+          name: myCognitoAuth
