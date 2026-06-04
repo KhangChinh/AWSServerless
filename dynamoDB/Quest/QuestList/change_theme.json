@@ -1,0 +1,9 @@
+{
+    "PK": "quest",
+    "SK": "change_theme",
+    "type": "CHANGE_THEME",
+    "name": "Làm mới bản thân",
+    "description": "Thay đổi chủ đề App bất kỳ.",
+    "target": 1,
+    "knowledgePoint": 80
+}

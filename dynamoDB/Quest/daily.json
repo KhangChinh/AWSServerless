@@ -1,17 +1,36 @@
 {
     "PK": "usr_12345",
-    "SK": "daily#2026-05-30",
+    "SK": "daily",
+    "date": "2026-06-04",
     "quests": {
         "focus_30": {
+            "type": "FOCUS",
+            "name": "Học mỗi ngày",
+            "description": "Hoàn thành 30 phút học tập.",
+            "target": 30,
             "progress": 15,
+            "knowledgePoint": 150,
+            "isCompleted": false,
             "isClaimed": false
         },
-        "play_2_sudoku": {
+        "play_minesweeper_1": {
+            "type": "PLAY_MINESWEEPER",
+            "name": "Gỡ mìn mỗi ngày",
+            "description": "Hoàn thành 1 ván Minesweeper.",
+            "target": 1,
             "progress": 1,
+            "knowledgePoint": 120,
+            "isCompleted": true,
             "isClaimed": false
         },
-        "complete_all_daily": {
-            "progress": 0,
+        "all_daily": {
+            "type": "COMPLETE_DAILY",
+            "name": "Nỗ lực không ngừng",
+            "description": "Hoàn thành 4 nhiệm vụ ngày.",
+            "target": 4,
+            "progress": 1,
+            "knowledgePoint": 100,
+            "isCompleted": false,
             "isClaimed": false
         }
     }

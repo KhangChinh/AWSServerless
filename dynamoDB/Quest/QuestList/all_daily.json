@@ -1,0 +1,9 @@
+{
+    "PK": "quest",
+    "SK": "all_daily",
+    "type": "COMPLETE_DAILY",
+    "name": "Nỗ lực không ngừng",
+    "description": "Hoàn thành tất cả nhiệm vụ ngày.",
+    "target": 4,
+    "knowledgePoint": 100
+}

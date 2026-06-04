@@ -1,0 +1,9 @@
+{
+    "PK": "quest",
+    "SK": "gacha_1",
+    "type": "GACHA",
+    "name": "Thử vận may",
+    "description": "Thực hiện 1 lượt quay Gacha.",
+    "target": 1,
+    "knowledgePoint": 80
+}

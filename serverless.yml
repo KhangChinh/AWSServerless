@@ -32,3 +32,4 @@ functions:
   - ${file(./src/userFunction/function.yml)}
   - ${file(./src/sessionFunction/function.yml)}
   - ${file(./src/inventoryFunction/function.yml)}
+  - ${file(./src/questFunction/function.yml)}

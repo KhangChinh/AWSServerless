@@ -1,0 +1,9 @@
+{
+    "PK": "quest",
+    "SK": "play_minesweeper_2",
+    "type": "PLAY_MINESWEEPER",
+    "name": "Chuyên gia gỡ mìn",
+    "description": "Chơi 2 ván Minesweeper.",
+    "target": 2,
+    "knowledgePoint": 240
+}

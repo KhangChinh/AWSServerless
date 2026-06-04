@@ -1,0 +1,9 @@
+{
+    "PK": "quest",
+    "SK": "play_minesweeper_1",
+    "type": "PLAY_MINESWEEPER",
+    "name": "Gỡ mìn mỗi ngày",
+    "description": "Hoàn thành 1 ván Minesweeper.",
+    "target": 1,
+    "knowledgePoint": 120
+}

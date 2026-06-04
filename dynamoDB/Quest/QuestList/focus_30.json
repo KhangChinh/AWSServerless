@@ -1,0 +1,9 @@
+{
+    "PK": "quest",
+    "SK": "focus_30",
+    "type": "FOCUS",
+    "name": "Học mỗi ngày",
+    "description": "Hoàn thành 30 phút học tập.",
+    "target": 30,
+    "knowledgePoint": 150
+}
