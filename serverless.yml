@@ -17,6 +17,7 @@ provider:
             - dynamodb:UpdateItem
             - dynamodb:DeleteItem
             - dynamodb:Query
+            - dynamodb:BatchWriteItem
           Resource: "arn:aws:dynamodb:${self:provider.region}:*:table/${env:TABLE_NAME}"
   httpApi:
     cors: true

@@ -4,6 +4,6 @@
     "name": "Bố của tập trung cao độ",
     "description": "Hoàn thành 3000 phút bấm giờ Focus.",
     "target": 3000,
-    "rewardPoint": 0,
-    "rewardTitle": "title_bibilabu"
+    "rewardType": "title",
+    "reward": "bibilabu"
 }

@@ -37,7 +37,7 @@ const handleInitUser = async (event) => {
         PK: userId,
         SK: "profile",
         information: {
-            name: name,
+            name: name || "N/A",
             email: email,
             avatarUrl: DEFAULT_AVATAR_URL
         },

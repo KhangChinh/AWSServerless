@@ -1,7 +1,7 @@
 {
-    "PK": "shop",
-    "SK": "theme_cyberpunk",
-    "rariry": "5-star",
+    "PK": "item",
+    "SK": "cyberpunk",
+    "rariry": "5",
     "name": "Theme Cyberpunk",
     "itemType": "theme",
     "currencyType": "entainCoin",

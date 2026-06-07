@@ -1,6 +1,6 @@
 {
-    "PK": "minigame",
-    "SK": "sudoku#easy_1",
+    "PK": "sudoku",
+    "SK": "easy_1",
     "name": "Sudoku Dễ 1",
     "unlockCostCoins": 0,
     "maxScoreCap": 1000,

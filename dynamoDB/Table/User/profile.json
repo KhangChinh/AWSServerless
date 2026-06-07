@@ -1,6 +1,5 @@
 {
     "PK": "usr_12345",
-    "SK": "profile",
     "information": {
         "name": "Nguyễn Văn A",
         "email": "a@example.com",
@@ -25,6 +24,13 @@
     "equippedCosmetics": {
         "equippedTheme": "cyberpunk_2077",
         "equippedFrame": "gold_border",
-        "equippedTitle": "novice_learner"
-    }
+        "equippedTitles": [
+            "novice_learner",
+            "speed_runner",
+            "top_1_server"
+        ]
+    },
+    "inventoryUpdatedAt": "2026-06-07T14:00:00.000Z",
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "updatedAt": "2026-06-07T14:05:00.000Z"
 }

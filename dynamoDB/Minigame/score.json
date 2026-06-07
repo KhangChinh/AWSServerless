@@ -1,8 +1,0 @@
-{
-    "PK": "usr_12345",
-    "SK": "score#sudoku",
-    "totalScore": 1000,
-    "levelScores": {
-        "sudoku#easy_1": 1000
-    }
-}

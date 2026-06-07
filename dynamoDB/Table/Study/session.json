@@ -1,0 +1,11 @@
+{
+    "PK": "usr_12345",
+    "SK": 1717725600000,
+    "mode": "rank",
+    "startTime": 1717722000000,
+    "endTime": 1717725600000,
+    "durationMinutes": 60,
+    "failedAttempts": 1,
+    "status": "COMPLETED",
+    "expiresAt": 1720314000
+}
