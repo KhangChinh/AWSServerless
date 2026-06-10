@@ -1,7 +1,10 @@
 {
     "PK": "usr_12345",
-    "SK": "theme#cyberpunk_2077",
-    "itemId": "cyberpunk_2077",
+    "SK": "cyberpunk_2077",
+    "rarity": "5",
+    "name": "Theme Cyberpunk",
+    "imageUrl": "https://cloudfront.net/items/theme_cyberpunk.jpg",
     "itemType": "theme",
+    "collectFrom": "eCoinShop",
     "acquiredAt": "2026-06-03T11:15:00.000Z"
 }

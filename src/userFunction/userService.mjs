@@ -45,7 +45,7 @@ const handleInitUser = async (event) => {
             knowledgePoint: 0,
             knowledgeCore: 0,
             sanity: 0,
-            entainCoin: 0
+            eCoin: 0
         },
         studyStats: {
             rankScore: 0,

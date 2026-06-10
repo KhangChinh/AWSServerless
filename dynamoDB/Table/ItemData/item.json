@@ -1,9 +1,17 @@
 {
     "PK": "item",
     "SK": "cyberpunk",
-    "rariry": "5",
+    "rarity": "5",
     "name": "Theme Cyberpunk",
+    "imageUrl": "https://cloudfront.net/items/theme_cyberpunk.jpg",
+    "assets": {
+        "css": "https://cdn.domain.com/themes/cyberpunk/style.css",
+        "bgm": "https://cdn.domain.com/themes/cyberpunk/background_music.mp3",
+        "particles": "https://cdn.domain.com/themes/cyberpunk/effects.json"
+    },
     "itemType": "theme",
-    "currencyType": "entainCoin",
-    "basePrice": 500
+    "currencyType": "eCoin",
+    "price": 500,
+    "collectFrom": "eCoinShop",
+    "isLimited": true
 }

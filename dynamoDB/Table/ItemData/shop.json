@@ -1,9 +1,25 @@
 {
     "PK": "shop",
-    "SK": "weekly",
+    "SK": "eCoinShop",
     "activeItems": [
-        "item#frame_stone_1",
-        "item#frame_stone_2"
+        {
+            "itemId": "item#frame_stone_1",
+            "name": "Khung Thạch Anh",
+            "imageUrl": "https://cloudfront.net/items/theme_cyberpunk.jpg",
+            "rarity": 4,
+            "itemType": "frame",
+            "currencyType": "eCoin",
+            "price": 100
+        },
+        {
+            "itemId": "item#frame_stone_2",
+            "name": "Khung Obsidian",
+            "imageUrl": "https://cloudfront.net/items/theme_cyberpunk.jpg",
+            "rarity": 5,
+            "itemType": "frame",
+            "currencyType": "eCoin",
+            "price": 2500
+        }
     ],
     "expiresAt": "2026-06-01T00:00:00Z"
 }

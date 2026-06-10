@@ -7,30 +7,28 @@
     },
     "budget": {
         "knowledgePoint": 1500,
-        "knowledgeCore": 10,
-        "sanity": 5000,
-        "entainCoin": 300
+        "knowledgeCore": 0,
+        "sanity": 0,
+        "eCoin": 0
     },
     "studyStats": {
-        "rankScore": 1500,
-        "streak": 5,
-        "lastFocusDate": "2026-05-30T00:00:00Z"
+        "rankScore": 0,
+        "streak": 0,
+        "lastFocusDate": "0"
     },
     "gachaStats": {
-        "pity4Star": 7,
-        "pity5Star": 78,
-        "isGuaranteed": false
+        "pity4Star": 0,
+        "pity5Star": 0,
+        "is4StarGuaranteed": false,
+        "is5StarGuaranteed": false
     },
     "equippedCosmetics": {
-        "equippedTheme": "cyberpunk_2077",
-        "equippedFrame": "gold_border",
-        "equippedTitles": [
-            "novice_learner",
-            "speed_runner",
-            "top_1_server"
-        ]
+        "equippedTheme": "default_dark",
+        "equippedFrame": null,
+        "equippedTitles": []
     },
     "inventoryUpdatedAt": "2026-06-07T14:00:00.000Z",
+    "avatarUpdatedAt": "2026-06-07T14:00:00.000Z",
     "createdAt": "2026-01-01T00:00:00.000Z",
     "updatedAt": "2026-06-07T14:05:00.000Z"
 }

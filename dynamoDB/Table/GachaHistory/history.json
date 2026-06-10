@@ -1,7 +1,8 @@
 {
     "PK": "usr_12345",
-    "SK": 1717416989,
-    "itemId": "theme_cyberpunk",
+    "SK": 1717416989000,
     "name": "Theme Cyberpunk",
-    "rarity": "5"
+    "rarity": "5",
+    "sanityAmount": 0,
+    "expiresAt": 1733224189000
 }
