@@ -1,9 +1,0 @@
-{
-    "PK": "achivement",
-    "SK": "complete_3000min_focus",
-    "name": "Bố của tập trung cao độ",
-    "description": "Hoàn thành 3000 phút bấm giờ Focus.",
-    "target": 3000,
-    "rewardType": "title",
-    "reward": "bibilabu"
-}

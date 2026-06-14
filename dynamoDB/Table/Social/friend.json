@@ -1,7 +1,9 @@
 {
     "PK": "usr_12345",
     "SK": "usr_98765",
-    "status": "ACCEPTED",
-    "createdAt": "2026-05-30T10:00:00Z",
-    "updatedAt": "2026-06-01T08:00:00Z"
+    "friendName": "Player B",
+    "friendAvatarUrl": "https://cdn.domain.com/avatar_b.png",
+    "status": "PENDING_OUT",
+    "createdAt": 1717722000,
+    "updatedAt": 1717722000
 }

@@ -1,8 +1,9 @@
 {
     "PK": "quest",
-    "SK": "focus_30",
-    "name": "Tập trung cao độ",
-    "description": "Hoàn thành 30 phút bấm giờ Focus.",
+    "SK": "focus_daily",
+    "type": "FOCUS",
+    "name": "Học mỗi ngày",
+    "description": "Hoàn thành 30 phút học tập",
     "target": 30,
-    "rewardPoint": 150
+    "knowledgePoint": 150
 }

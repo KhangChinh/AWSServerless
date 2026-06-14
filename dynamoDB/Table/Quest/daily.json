@@ -1,12 +1,11 @@
 {
     "PK": "usr_12345",
     "SK": "daily",
-    "date": "2026-06-04",
     "quests": {
-        "focus_30": {
+        "focus_daily": {
             "type": "FOCUS",
             "name": "Học mỗi ngày",
-            "description": "Hoàn thành 30 phút học tập.",
+            "description": "Hoàn thành 30 phút học tập",
             "target": 30,
             "progress": 15,
             "knowledgePoint": 150,
@@ -33,5 +32,6 @@
             "isCompleted": false,
             "isClaimed": false
         }
-    }
+    },
+    "expiresAt": 1780444800
 }

@@ -5,9 +5,9 @@
     "name": "Theme Cyberpunk",
     "imageUrl": "https://cloudfront.net/items/theme_cyberpunk.jpg",
     "assets": {
-        "css": "https://cdn.domain.com/themes/cyberpunk/style.css",
-        "bgm": "https://cdn.domain.com/themes/cyberpunk/background_music.mp3",
-        "particles": "https://cdn.domain.com/themes/cyberpunk/effects.json"
+        "css": "https://cloudfront.net/themes/cyberpunk/style.css",
+        "bgm": "https://cloudfront.net/themes/cyberpunk/music.mp3",
+        "particles": "https://cloudfront.net/themes/cyberpunk/effects.json"
     },
     "itemType": "theme",
     "currencyType": "eCoin",

@@ -16,7 +16,7 @@ mỗi profile.json chứa thông tin tổng quát và đại diện cho 1 user
 -studyStats:
     +rankScore: điểm xếp hạng nhận từ việc hoàn thành hoặc mất khi thất bại trong ranked study, frontend sẽ dựa vào điểm để render bậc hạng của user (khi mới tạo: 0)
     +streak: chuỗi ngày học tập của user, nhận được khi user hoàn thành học tập ít nhất 30 phút mỗi ngày (khi mới tạo: 0)
-    +lastFocusDate: ngày học tập gần nhất của user, dùng để xác định hôm qua có học hay không để + streak (khi mới tạo: 0)
+    +lastFocusDate: ngày học tập gần nhất của user, dùng để xác định hôm qua có học hay không để + streak (khi mới tạo: 0) số = Math.floor( (Timestamp_Mili_Seconds + Múi_giờ_offset) / 86400000 )
 -gachaStats:
     +pity4Star: pity để đảm bảo user nhận được vật phẩm rarity = 4 trở lên, mỗi 10 lần sẽ luôn đảm bảo được 1 lần (khi mới tạo: 0)
     +pity5Star: pity để đảm bảo user nhận được vật phẩm rarity = 5, mỗi 80 lần sẽ luôn đảm bảo được 1 lần (khi mới tạo: 0)

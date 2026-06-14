@@ -1,6 +1,10 @@
 {
     "PK": "usr_12345",
-    "SK": "sudoku",
-    "currentLevel": "easy_1",
-    "startTime": 1717076586
+    "SK": "session#sudoku",
+    "levelId": "easy_1",
+    "startTime": 1717076586,
+    "sanityCost": 100,
+    "status": "PENDING",
+    "seed": "abc123xyz",
+    "solutionGrid": "534678912..."
 }

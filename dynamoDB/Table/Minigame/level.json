@@ -2,9 +2,10 @@
     "PK": "sudoku",
     "SK": "easy_1",
     "name": "Sudoku Dễ 1",
-    "unlockCostCoins": 0,
+    "sanityCost": 100,
+    "requiredLevel": "easy_0",
     "maxScoreCap": 1000,
-    "rewardStones": 10,
+    "eCoin": 10,
     "baseMapConfig": {
         "gridSize": "9x9",
         "emptyCellsCount": 43,

@@ -1,0 +1,13 @@
+{
+    "PK": "usr_12345",
+    "SK": "stats#sudoku",
+    "gameId": "sudoku",
+    "totalScore": 34567,
+    "levelsCompleted": 10,
+    "lastUpdatedAt": 1749723753,
+    "displayInfo": {
+        "name": "Nguyễn Văn A",
+        "avatarUrl": "https://cloudfront.net/avatar/usr_12345.jpg",
+        "equippedFrame": "cyberpunk"
+    }
+}

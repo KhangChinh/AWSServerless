@@ -13,8 +13,9 @@
     },
     "studyStats": {
         "rankScore": 0,
+        "timeToStreak": 30,
         "streak": 0,
-        "lastFocusDate": "0"
+        "lastFocusDate": 20616
     },
     "gachaStats": {
         "pity4Star": 0,
@@ -27,8 +28,10 @@
         "equippedFrame": null,
         "equippedTitles": []
     },
-    "inventoryUpdatedAt": "2026-06-07T14:00:00.000Z",
-    "avatarUpdatedAt": "2026-06-07T14:00:00.000Z",
-    "createdAt": "2026-01-01T00:00:00.000Z",
-    "updatedAt": "2026-06-07T14:05:00.000Z"
+    "inventoryUpdatedAt": 1717768800000,
+    "gachaHistoryUpdatedAt": 1717768800000,
+    "friendUpdatedAt": 1717768800000,
+    "avatarUpdatedAt": 1717768800000,
+    "createdAt": 1767225600000,
+    "updatedAt": 1717769100000
 }
