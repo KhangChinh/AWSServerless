@@ -316,8 +316,6 @@
     "PK": "usr_12345",
     "SK": 1717725600,
     "mode": "rank",
-    "startTime": 1717722000,
-    "endTime": 1717725600,
     "durationMinutes": 60,
     "strikeCount": 1,
     "status": "COMPLETED",
