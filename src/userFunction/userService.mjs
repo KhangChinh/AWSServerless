@@ -39,7 +39,7 @@ const handleInitUser = async (event) => {
         information: {
             name: name || "N/A",
             email: email,
-            avatarUrl: DEFAULT_AVATAR_URL
+            avatarUrl: "default_avatar.png"
         },
         budget: {
             knowledgePoint: 0,

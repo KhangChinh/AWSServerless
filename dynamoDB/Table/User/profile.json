@@ -25,6 +25,7 @@
     },
     "equippedCosmetics": {
         "equippedTheme": "default_dark",
+        "equippedButton": "default_button",
         "equippedFrame": null,
         "equippedTitles": []
     },
