@@ -11,7 +11,7 @@ const handleGetUser = async (event) => {
     }
     try {
         const result = await docClient.send(new GetCommand({
-            TableName: process.env.USER_TABLE,
+            TableName: process.env.TABLE_NAME,
             Key: {
                 PK: userId,
                 SK: "profile"
@@ -83,7 +83,7 @@ const handleInitUser = async (event) => {
     };
     const params = {
         RequestItems: {
-            [process.env.USER_TABLE]: [
+            [process.env.TABLE_NAME]: [
                 {
                     PutRequest: { Item: profileItem }
                 },
@@ -109,7 +109,7 @@ const handleGetProfile = async (event) => {
     if (!userId) return errorResponse(401, "Unauthorized");
     try {
         const result = await docClient.send(new GetCommand({
-            TableName: process.env.USER_TABLE,
+            TableName: process.env.TABLE_NAME,
             Key: {
                 PK: userId,
                 SK: "profile"
@@ -135,7 +135,7 @@ const handleUpdateProfile = async (event) => {
     const now = new Date().toISOString();
     try {
         const updateResult = await docClient.send(new UpdateCommand({
-            TableName: process.env.USER_TABLE,
+            TableName: process.env.TABLE_NAME,
             Key: {
                 PK: userId,
                 SK: "profile"
@@ -176,7 +176,7 @@ const handleEquipCosmetics = async (event) => {
     }
     try {
         const inventoryResult = await docClient.send(new GetCommand({
-            TableName: process.env.USER_TABLE,
+            TableName: process.env.TABLE_NAME,
             Key: {
                 PK: userId,
                 SK: "inventory"
@@ -203,7 +203,7 @@ const handleEquipCosmetics = async (event) => {
         }
         const now = new Date().toISOString();
         const updateResult = await docClient.send(new UpdateCommand({
-            TableName: process.env.USER_TABLE,
+            TableName: process.env.TABLE_NAME,
             Key: { PK: userId, SK: "profile" },
             UpdateExpression: "SET equippedCosmetics.equippedTheme = :themeId, equippedCosmetics.equippedFrame = :frameId, equippedCosmetics.equippedTitles = :titles, updatedAt = :now",
             ExpressionAttributeValues: {

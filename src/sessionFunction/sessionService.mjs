@@ -231,7 +231,7 @@ const handleEndSession = async (event) => {
         // Cộng điểm vào Profile nếu có
         if (earnedPoints !== null) {
             await docClient.send(new UpdateCommand({
-                TableName: process.env.USER_TABLE,
+                TableName: process.env.TABLE_NAME,
                 Key: { PK: userId, SK: "profile" },
                 UpdateExpression: "ADD studyStats.rankScore :pts",
                 ExpressionAttributeValues: { ":pts": earnedPoints }
