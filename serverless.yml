@@ -2,7 +2,7 @@ service: aws-uchimi
 useDotenv: true
 provider:
   name: aws
-  runtime: nodejs24.x
+  runtime: nodejs20.x
   region: ap-southeast-1 
   environment:
     TABLE_NAME: ${env:TABLE_NAME}
@@ -49,5 +49,3 @@ provider:
 functions:
   - ${file(./src/userFunction/function.yml)}
   - ${file(./src/sessionFunction/function.yml)}
-  - ${file(./src/inventoryFunction/function.yml)}
-  - ${file(./src/questFunction/function.yml)}

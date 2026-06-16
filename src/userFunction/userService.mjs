@@ -1,9 +1,9 @@
 import { BatchWriteCommand, BatchGetCommand } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "../database.mjs";
 
-const USER_TABLE = process.env.USER_TABLE_NAME;
-const INVENTORY_TABLE = process.env.INVENTORY_TABLE_NAME;
-const ITEM_DATA_TABLE = process.env.ITEM_DATA_TABLE_NAME; // Bảng chứa dữ liệu vật phẩm gốc
+const USER_TABLE = process.env.USER_TABLE;
+const INVENTORY_TABLE = process.env.INVENTORY_TABLE;
+const ITEM_DATA_TABLE = process.env.ITEMDATA_TABLE; // Bảng chứa dữ liệu vật phẩm gốc
 
 export const handleInitUser = async (event) => {
     const userId = event.request.userAttributes.sub;

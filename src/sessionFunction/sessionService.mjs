@@ -27,10 +27,10 @@ const handleStartSession = async (event) => {
         }
 
         const now = Math.floor(Date.now() / 1000);
-        const sessionId = `session#${new Date().toISOString()}`;
+        const sessionId = now;
 
         await docClient.send(new PutCommand({
-            TableName: process.env.TABLE_NAME,
+            TableName: process.env.STUDY_TABLE,
             Item: {
                 PK: userId,
                 SK: sessionId,
@@ -74,8 +74,8 @@ const handleRecordStrike = async (event) => {
 
         // Lấy session hiện tại
         const getResult = await docClient.send(new GetCommand({
-            TableName: process.env.TABLE_NAME,
-            Key: { PK: userId, SK: sessionId },
+            TableName: process.env.STUDY_TABLE,
+            Key: { PK: userId, SK: Number(sessionId) },
         }));
 
         if (!getResult.Item) {
@@ -92,8 +92,8 @@ const handleRecordStrike = async (event) => {
             // Auto FAILED: đủ 3 strikes
             const now = Math.floor(Date.now() / 1000);
             await docClient.send(new UpdateCommand({
-                TableName: process.env.TABLE_NAME,
-                Key: { PK: userId, SK: sessionId },
+                TableName: process.env.STUDY_TABLE,
+                Key: { PK: userId, SK: Number(sessionId) },
                 UpdateExpression: "SET strikeCount = :count, #st = :failed, endTime = :now, expiresAt = :ttl",
                 ExpressionAttributeNames: { "#st": "status" },
                 ExpressionAttributeValues: {
@@ -109,8 +109,8 @@ const handleRecordStrike = async (event) => {
 
         // Chưa đủ 3: chỉ tăng count
         await docClient.send(new UpdateCommand({
-            TableName: process.env.TABLE_NAME,
-            Key: { PK: userId, SK: sessionId },
+            TableName: process.env.STUDY_TABLE,
+            Key: { PK: userId, SK: Number(sessionId) },
             UpdateExpression: "SET strikeCount = :count",
             ExpressionAttributeValues: { ":count": newCount },
         }));
@@ -148,8 +148,8 @@ const handleEndSession = async (event) => {
 
         // Lấy session từ DB
         const getResult = await docClient.send(new GetCommand({
-            TableName: process.env.TABLE_NAME,
-            Key: { PK: userId, SK: sessionId },
+            TableName: process.env.STUDY_TABLE,
+            Key: { PK: userId, SK: Number(sessionId) },
         }));
 
         if (!getResult.Item) {
@@ -200,8 +200,8 @@ const handleEndSession = async (event) => {
 
         // Cập nhật DB
         await docClient.send(new UpdateCommand({
-            TableName: process.env.TABLE_NAME,
-            Key: { PK: userId, SK: sessionId },
+            TableName: process.env.STUDY_TABLE,
+            Key: { PK: userId, SK: Number(sessionId) },
             UpdateExpression: "SET #st = :status, endTime = :now, expiresAt = :ttl",
             ExpressionAttributeNames: { "#st": "status" },
             ExpressionAttributeValues: {
