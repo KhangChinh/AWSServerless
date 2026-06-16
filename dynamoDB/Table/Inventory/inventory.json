@@ -4,6 +4,11 @@
     "rarity": "5",
     "name": "Theme Cyberpunk",
     "imageUrl": "https://cloudfront.net/items/theme_cyberpunk.jpg",
+    "assets": {
+        "css": "https://cloudfront.net/themes/cyberpunk/style.css",
+        "bgm": "https://cloudfront.net/themes/cyberpunk/music.mp3",
+        "particles": "https://cloudfront.net/themes/cyberpunk/effects.json"
+    },
     "itemType": "theme",
     "collectFrom": "eCoinShop",
     "acquiredAt": "2026-06-03T11:15:00.000Z"

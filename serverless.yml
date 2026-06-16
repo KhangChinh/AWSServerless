@@ -7,9 +7,13 @@ provider:
   environment:
     TABLE_NAME: ${env:TABLE_NAME}
     USER_TABLE: ${env:USER_TABLE}
-    SESSION_TABLE: ${env:SESSION_TABLE}
-    INVENTORY_TABLE: ${env:INVENTORY_TABLE}
+    STUDY_TABLE: ${env:STUDY_TABLE}
+    SOCIAL_TABLE: ${env:SOCIAL_TABLE}
     QUEST_TABLE: ${env:QUEST_TABLE}
+    MINIGAME_TABLE: ${env:MINIGAME_TABLE}
+    ITEMDATA_TABLE: ${env:ITEMDATA_TABLE}
+    INVENTORY_TABLE: ${env:INVENTORY_TABLE}
+    GACHAHISTORY_TABLE: ${env:GACHAHISTORY_TABLE}
 
   iam:
     role:
@@ -25,9 +29,13 @@ provider:
           Resource: 
             - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:TABLE_NAME}"
             - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:USER_TABLE}"
-            - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:SESSION_TABLE}"
-            - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:INVENTORY_TABLE}"
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:STUDY_TABLE}"
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:SOCIAL_TABLE}"
             - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:QUEST_TABLE}"
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:MINIGAME_TABLE}"
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:ITEMDATA_TABLE}"
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:INVENTORY_TABLE}"
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:GACHAHISTORY_TABLE}"
   httpApi:
     cors: true
     authorizers:
