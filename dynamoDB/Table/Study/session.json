@@ -1,7 +1,10 @@
 {
     "PK": "usr_12345",
-    "SK": 1717725600,
+    "SK": "session#1280444800",
     "mode": "rank",
+    "startTime": "2026-06-03T11:15:00.000Z",
+    "endTime": "2026-06-03T11:15:00.000Z",
+    "rankPoints": null,
     "durationMinutes": 60,
     "strikeCount": 1,
     "status": "COMPLETED",
