@@ -27,7 +27,9 @@ const handleStartSession = async (event) => {
         }
 
         const now = Math.floor(Date.now() / 1000);
-        const sessionId = now;
+        const sessionId = "session#" + now;
+        const startTimeStr = new Date().toISOString();
+        const expiresAt = now + (6 * 30 * 24 * 60 * 60); // 6 tháng
 
         await docClient.send(new PutCommand({
             TableName: process.env.STUDY_TABLE,
@@ -35,12 +37,13 @@ const handleStartSession = async (event) => {
                 PK: userId,
                 SK: sessionId,
                 mode,
-                startTime: now,
+                startTime: startTimeStr,
                 endTime: null,
+                rankPoints: null,
                 durationMinutes,
                 status: "PENDING",
                 strikeCount: 0,
-                expiresAt: null,
+                expiresAt: expiresAt,
             },
         }));
 
@@ -68,14 +71,14 @@ const handleRecordStrike = async (event) => {
         const body = JSON.parse(event.body || "{}");
         const { sessionId } = body;
 
-        if (!sessionId) {
-            return errorResponse(400, "sessionId là bắt buộc");
+        if (!sessionId || typeof sessionId !== "string") {
+            return errorResponse(400, "sessionId là bắt buộc và phải là chuỗi");
         }
 
         // Lấy session hiện tại
         const getResult = await docClient.send(new GetCommand({
             TableName: process.env.STUDY_TABLE,
-            Key: { PK: userId, SK: Number(sessionId) },
+            Key: { PK: userId, SK: sessionId },
         }));
 
         if (!getResult.Item) {
@@ -90,17 +93,16 @@ const handleRecordStrike = async (event) => {
 
         if (newCount >= 3) {
             // Auto FAILED: đủ 3 strikes
-            const now = Math.floor(Date.now() / 1000);
+            const endTimeStr = new Date().toISOString();
             await docClient.send(new UpdateCommand({
                 TableName: process.env.STUDY_TABLE,
-                Key: { PK: userId, SK: Number(sessionId) },
-                UpdateExpression: "SET strikeCount = :count, #st = :failed, endTime = :now, expiresAt = :ttl",
+                Key: { PK: userId, SK: sessionId },
+                UpdateExpression: "SET strikeCount = :count, #st = :failed, endTime = :now",
                 ExpressionAttributeNames: { "#st": "status" },
                 ExpressionAttributeValues: {
                     ":count": newCount,
                     ":failed": "FAILED",
-                    ":now": now,
-                    ":ttl": now + 30 * 24 * 60 * 60,
+                    ":now": endTimeStr
                 },
             }));
 
@@ -110,7 +112,7 @@ const handleRecordStrike = async (event) => {
         // Chưa đủ 3: chỉ tăng count
         await docClient.send(new UpdateCommand({
             TableName: process.env.STUDY_TABLE,
-            Key: { PK: userId, SK: Number(sessionId) },
+            Key: { PK: userId, SK: sessionId },
             UpdateExpression: "SET strikeCount = :count",
             ExpressionAttributeValues: { ":count": newCount },
         }));
@@ -142,14 +144,14 @@ const handleEndSession = async (event) => {
         const body = JSON.parse(event.body || "{}");
         const { sessionId } = body;
 
-        if (!sessionId) {
-            return errorResponse(400, "sessionId là bắt buộc");
+        if (!sessionId || typeof sessionId !== "string") {
+            return errorResponse(400, "sessionId là bắt buộc và phải là chuỗi");
         }
 
         // Lấy session từ DB
         const getResult = await docClient.send(new GetCommand({
             TableName: process.env.STUDY_TABLE,
-            Key: { PK: userId, SK: Number(sessionId) },
+            Key: { PK: userId, SK: sessionId },
         }));
 
         if (!getResult.Item) {
@@ -161,8 +163,9 @@ const handleEndSession = async (event) => {
         }
 
         const session = getResult.Item;
-        const now = Math.floor(Date.now() / 1000);
-        const elapsed = now - session.startTime;
+        const nowMs = Date.now();
+        const startTimeMs = new Date(session.startTime).getTime();
+        const elapsed = Math.floor((nowMs - startTimeMs) / 1000);
         const expected = session.durationMinutes * 60;
 
         // ══════════════════════════════════════
@@ -198,22 +201,47 @@ const handleEndSession = async (event) => {
             status = "FAILED";
         }
 
+        let earnedPoints = null;
+
+        if (status === "COMPLETED" && session.mode === "rank") {
+            earnedPoints = Math.floor(elapsed / 60); // Điểm rank = số phút đã học
+        }
+
+        const endTimeStr = new Date().toISOString();
+        let updateExpr = "SET #st = :status, endTime = :now";
+        let attrValues = {
+            ":status": status,
+            ":now": endTimeStr
+        };
+
+        if (earnedPoints !== null) {
+            updateExpr += ", rankPoints = :pts";
+            attrValues[":pts"] = earnedPoints;
+        }
+
         // Cập nhật DB
         await docClient.send(new UpdateCommand({
             TableName: process.env.STUDY_TABLE,
-            Key: { PK: userId, SK: Number(sessionId) },
-            UpdateExpression: "SET #st = :status, endTime = :now, expiresAt = :ttl",
+            Key: { PK: userId, SK: sessionId },
+            UpdateExpression: updateExpr,
             ExpressionAttributeNames: { "#st": "status" },
-            ExpressionAttributeValues: {
-                ":status": status,
-                ":now": now,
-                ":ttl": now + 30 * 24 * 60 * 60,
-            },
+            ExpressionAttributeValues: attrValues,
         }));
+
+        // Cộng điểm vào Profile nếu có
+        if (earnedPoints !== null) {
+            await docClient.send(new UpdateCommand({
+                TableName: process.env.USER_TABLE,
+                Key: { PK: userId, SK: "profile" },
+                UpdateExpression: "ADD studyStats.rankScore :pts",
+                ExpressionAttributeValues: { ":pts": earnedPoints }
+            }));
+        }
 
         return successResponse({
             status,
             actualDurationSeconds: elapsed,
+            earnedPoints: earnedPoints || 0
         });
     } catch (error) {
         console.error("Lỗi kết thúc session:", error);
