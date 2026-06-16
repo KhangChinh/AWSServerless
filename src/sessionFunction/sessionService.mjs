@@ -159,7 +159,14 @@ const handleEndSession = async (event) => {
         }
 
         if (getResult.Item.status !== "PENDING") {
-            return errorResponse(400, "Session đã kết thúc");
+            const session = getResult.Item;
+            const nowMs = Date.now();
+            const startTimeMs = new Date(session.startTime).getTime();
+            return successResponse({
+                status: session.status,
+                actualDurationSeconds: Math.floor((nowMs - startTimeMs) / 1000),
+                earnedPoints: session.rankPoints || 0
+            });
         }
 
         const session = getResult.Item;
