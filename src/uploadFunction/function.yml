@@ -9,13 +9,21 @@ uploadZip:
             - suffix: .zip
           existing: true
 
-uploadJson:
-    handler: src/uploadFuntion/levelUpload.processJson
+uploadConfigJson:
+    handler: src/uploadFunction/jsonUpload.processJson
     events:
       - s3:
           bucket: ${env:ASSETS_BUCKET}
           event: s3:ObjectCreated:*
           rules:
             - prefix: uploads/levels/
+            - suffix: .json
+          existing: true
+      
+      - s3:
+          bucket: ${env:ASSETS_BUCKET}
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: uploads/quests/
             - suffix: .json
           existing: true

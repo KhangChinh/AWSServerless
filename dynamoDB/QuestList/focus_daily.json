@@ -1,6 +1,6 @@
 {
     "PK": "quest",
-    "SK": "focus_30",
+    "SK": "focus_daily",
     "type": "FOCUS",
     "name": "Học mỗi ngày",
     "description": "Hoàn thành 30 phút học tập.",
