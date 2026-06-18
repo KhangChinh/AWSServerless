@@ -1,0 +1,11 @@
+{
+    "PK": "item",
+    "SK": "dark",
+    "itemType": "background",
+    "name": "Dark Background",
+    "rarity": "4",
+    "currencyType": null,
+    "price": null,
+    "collectFrom": "gacha",
+    "isLimited": false
+}

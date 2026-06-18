@@ -1,0 +1,16 @@
+/* ============================================================
+   BACKGROUND THEME: Minimalist White
+   ============================================================ */
+:root {
+  --desktop-user-background: 
+    linear-gradient(180deg, rgba(2, 6, 23, 0.48), rgba(2, 6, 23, 0.7)), 
+    linear-gradient(135deg, #e2e8f0 0%, #f8fafc 52%, #cbd5e1 100%);
+
+  /* Overriding text colors for light background */
+  --desktop-text-main:  #0c0218;
+  --desktop-text-muted: #64748b;
+}
+
+.os-desktop {
+  background: #f8fafc !important;
+}

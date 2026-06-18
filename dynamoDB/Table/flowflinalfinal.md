@@ -132,18 +132,18 @@
 -khi server hoàn thành 1 thao tác liên quan đến quest (end session của học, end session của game, gacha,...)
     +gọi 1 hàm update progress đưa userId, type (FOCUS, SUKDOKU, MINESWEEPER, GAHCA,...) và tiến độ tương ứng
     +tiến hành kiểm tra các quest có type tương ứng có isCompleted = false của userId đó, + progress vào cho các quest đó, nếu progress >= target thì cho quest đó là hoàn thành
-    +với mỗi quest hoàn thành thì +1 progress cho all_daily
+    +với mỗi quest hoàn thành thì +1 cho all_daily_progress, all_daily_progress đủ 4 thì cho all_daily_completed sang true,
     +trả về danh sách quest với tiến độ mới cho hàm trc nếu có cập nhật
 
 -khi người dùng mở chức năng nhiệm vụ:
     +kiểm tra trong redux có daily chưa, nếu có thì ưu tiên load ra, nếu có mà expiresAt đã qua hoặc ko có thì gọi api lấy daily về
     +server lấy userId để kiểm tra daily của userId đó, nếu daily có expiresAt chưa qua thì gửi về nếu đã qua thì chạy thuật toán refresh daily
-        ```thuật toán refresh daily (gồm 5 quest, 2 quest cố định và 3 quest random)```
+        ```thuật toán refresh daily (gồm 4 quest, 1 quest cố định và 3 quest random)```
         ```kiểm tra lastFocusDate và hôm nay có liên tục ko, nếu ko thì cập nhật streak về 0 và updatedAt mới nhất```
         ```cập nhật timeToStreak trong profile của userId đó về 30```
-        ```luôn lấy 2 quest có SK là focus_daily và all_daily vào danh sách```
-        ```3 quest còn lại sẽ random lấy 3 trừ 3 cái đó trong tất cả các PK quest trừ SK focus_daily và all_daily```
-        ```khi random xong sẽ ghi đè lên PK userId và SK daily của userId đó quest mới, ghi lại ngày mới và danh sách nhiệm vụ mới```
+        ```luôn lấy quest có SK là focus_daily vào danh sách```
+        ```3 quest còn lại sẽ random lấy 3 trong tất cả các PK quest trừ SK focus_daily```
+        ```khi random xong sẽ ghi đè lên PK userId và SK daily của userId đó quest mới, ghi lại ngày mới và danh sách nhiệm vụ mới và cập nhật all_daily_progress về 0, all_daily_completed và all_daily_claimed qua false```
         ```cấu trục nhiệm vụ [quest](../Table/Quest/quest.json) ghi vào quests trong [daily](../Table/Quest/daily.json)```
         ```lấy SK của quest làm thành key trong quests của daily```
         ```thêm value progress, isCompleted và isClaimed cho mỗi quest```
@@ -151,7 +151,8 @@
 
 -khi người dùng ấn nhận quest
     +client hiển thị 4 quest trừ all_daily hiện theo cách đặc biệt, hiện progress đã hoàn thành, nếu isClaimed = false và isCompleted = true thì cho ấn nút nhận thưởng
-    +khi ấn nhận thưởng, gửi key của quest đó cho server, server lấy daily của userId đó tìm key của quest đó, các hành động đều cùng 1 transaction, nếu isClaimed và isCompleted hợp lệ thì tiến hành gọi hàm cộng knowledgedPoint tương ứng vào budget của profile sau đó set lại isClamed = true để ko cho nhận nữa 
+    +khi ấn nhận thưởng, gửi key của quest đó cho server, server lấy daily của userId đó tìm key của quest đó, các hành động đều cùng 1 transaction, nếu isClaimed và isCompleted hợp lệ thì tiến hành gọi hàm cộng knowledgedPoint tương ứng vào budget của profile sau đó set lại isClamed = true để ko cho nhận nữa
+    +tương tự khi all_daily_completed = true thì người dùng có thể claim quà hoàn thành tất cả nhiệm vụ ngày, ấn vào sẽ chuyển all_daily_claimed sang true và ko cho nhận nữa
 
 -khi nhận được tiền tệ (knowledgePoint, knowledgeCore, sanity, eCoin):
     +tiền tệ nhận được khi hoàn thành daily, gacha hoặc mua (vd knowledgeCore mua bằng knowledgePoint)

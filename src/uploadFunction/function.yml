@@ -1,0 +1,21 @@
+uploadZip:
+    handler: src/uploadFunction/itemUpload.processZip
+    events:
+      - s3:
+          bucket: ${env:ASSETS_BUCKET}
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: uploads/items/
+            - suffix: .zip
+          existing: true
+
+uploadJson:
+    handler: src/uploadFuntion/levelUpload.processJson
+    events:
+      - s3:
+          bucket: ${env:ASSETS_BUCKET}
+          event: s3:ObjectCreated:*
+          rules:
+            - prefix: uploads/levels/
+            - suffix: .json
+          existing: true

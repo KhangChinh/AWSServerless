@@ -1,0 +1,195 @@
+/* ============================================================
+   BACKGROUND THEME: Crimson Void
+   Upload path: /themes/bg_crimson_void/bg_crimson_void.css
+   ============================================================
+
+   Cách dùng — thêm vào index.html:
+   <link rel="stylesheet"
+     href="https://<your-cf-domain>/themes/bg_crimson_void/bg_crimson_void.css">
+
+   File này override --desktop-user-background và inject
+   các animated layer vào .os-desktop thông qua CSS thuần.
+   Không cần JS, không cần build step.
+   ============================================================ */
+
+/* ─── 1. Token Override ─── */
+:root {
+  --bg-crimson-core:      #ff2d55;
+  --bg-crimson-deep:      #1a000a;
+  --bg-crimson-mid:       #220010;
+  --bg-crimson-edge:      #0d0005;
+  --bg-void-blue:         #0a0e2a;
+  --bg-void-teal:         rgba(0, 230, 210, 0.22);
+  --bg-void-amber:        rgba(255, 160, 30, 0.18);
+  --bg-moon-glow:         rgba(255, 45, 85, 0.28);
+  --bg-grid-line:         rgba(255, 45, 85, 0.07);
+  --bg-grid-line-h:       rgba(0, 210, 200, 0.06);
+
+  /* ← Đây là variable mà .desktop-line-bg đọc */
+  --desktop-user-background:
+    /* Blood moon core glow */
+    radial-gradient(circle at 76% 18%,  rgba(255, 45,  85,  0.55) 0%, transparent 22%),
+    radial-gradient(circle at 76% 18%,  rgba(255, 90,  50,  0.28) 0%, transparent 38%),
+    /* Teal nebula left */
+    radial-gradient(circle at 12% 62%,  rgba(0,  230, 210,  0.32) 0%, transparent 30%),
+    radial-gradient(circle at 22% 44%,  rgba(0,  180, 255,  0.16) 0%, transparent 26%),
+    /* Amber rift bottom-right */
+    radial-gradient(circle at 88% 82%,  rgba(255, 160, 30,  0.22) 0%, transparent 28%),
+    /* Purple void core */
+    radial-gradient(circle at 50% 50%,  rgba(80,   0,  40,  0.45) 0%, transparent 60%),
+    /* Base deep space */
+    linear-gradient(162deg,
+      #0d0005  0%,
+      #130008 18%,
+      #0d0318 42%,
+      #060212 68%,
+      #0a0005 100%),
+    /* Holo grid primary */
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 45, 85, 0.07)   0 1px,
+      transparent                1px 80px),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 45, 85, 0.05)   0 1px,
+      transparent                1px 80px),
+    /* Holo grid secondary diagonal */
+    repeating-linear-gradient(
+      128deg,
+      rgba(0, 210, 200, 0.06)   0 1px,
+      transparent                1px 160px);
+}
+
+/* ─── 2. Desktop shell — solid dark base ─── */
+.os-desktop {
+  background: #0d0005 !important;
+}
+
+/* ─── 3. Animated layers injected via ::before / ::after ─── */
+.os-desktop::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+
+  /* Blood moon orb — animates slowly */
+  background:
+    radial-gradient(circle 220px at 76% 18%, rgba(255, 45, 85, 0.52) 0%, transparent 100%),
+    radial-gradient(circle 420px at 76% 18%, rgba(255, 60, 40, 0.18) 0%, transparent 100%);
+
+  animation: cv-moon-pulse 9s ease-in-out infinite alternate;
+}
+
+.os-desktop::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+
+  /* Scan line sweep */
+  background:
+    linear-gradient(
+      180deg,
+      transparent               0%,
+      rgba(255, 45, 85, 0.04)  49%,
+      rgba(255, 45, 85, 0.09)  50%,
+      rgba(255, 45, 85, 0.04)  51%,
+      transparent              100%);
+  background-size: 100% 6px;
+  animation: cv-scanlines 18s linear infinite;
+  mix-blend-mode: screen;
+  opacity: 0.6;
+}
+
+/* ─── 4. Particle shimmer on desktop-line-bg ─── */
+.desktop-line-bg::after {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  z-index: 2;
+  pointer-events: none;
+
+  /* Radial shimmer that drifts */
+  background:
+    radial-gradient(ellipse 60% 30% at 30% 70%, rgba(255, 45, 85, 0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 50% at 80% 30%, rgba(0, 230, 210, 0.10) 0%, transparent 70%);
+  animation: cv-shimmer-drift 22s ease-in-out infinite alternate;
+}
+
+/* ─── 5. Taskbar & window-header tint ─── */
+.os-taskbar {
+  background: rgba(13, 0, 5, 0.82) !important;
+  border-top-color: rgba(255, 45, 85, 0.18) !important;
+  box-shadow: 0 -1px 0 rgba(255, 45, 85, 0.12),
+              0 -12px 40px rgba(255, 45, 85, 0.06) !important;
+}
+
+.window-header {
+  background: rgba(20, 0, 8, 0.95) !important;
+  border-bottom-color: rgba(255, 45, 85, 0.14) !important;
+}
+
+.os-window {
+  border-color: rgba(255, 45, 85, 0.12) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6),
+              0 0 1px rgba(255, 45, 85, 0.18) !important;
+}
+
+.os-window.active {
+  border-color: rgba(255, 45, 85, 0.35) !important;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.75),
+              0 0 24px rgba(255, 45, 85, 0.22) !important;
+}
+
+/* ─── 6. User profile widget tint ─── */
+.user-profile-widget {
+  background: rgba(20, 0, 8, 0.72) !important;
+  border-color: rgba(255, 45, 85, 0.2) !important;
+}
+
+.user-profile-widget:hover {
+  border-color: rgba(255, 45, 85, 0.45) !important;
+  box-shadow: 0 8px 30px rgba(255, 45, 85, 0.18) !important;
+}
+
+/* Start button tint */
+.start-btn {
+  background: linear-gradient(135deg, #ff2d55 0%, #9b001f 100%) !important;
+  box-shadow: 0 0 18px rgba(255, 45, 85, 0.45) !important;
+}
+
+/* Active window indicator */
+.taskbar-icon.active .indicator {
+  background: #ff2d55 !important;
+}
+
+/* ─── 7. Keyframes ─── */
+
+@keyframes cv-moon-pulse {
+  from {
+    opacity: 0.82;
+    transform: scale(0.96) translate(0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.06) translate(1%, -1.5%);
+  }
+}
+
+@keyframes cv-scanlines {
+  from { background-position-y: 0; }
+  to   { background-position-y: 6px; }
+}
+
+@keyframes cv-shimmer-drift {
+  from {
+    transform: translate(-5%, 4%) scale(1);
+    opacity: 0.7;
+  }
+  to {
+    transform: translate(5%, -4%) scale(1.08);
+    opacity: 1;
+  }
+}

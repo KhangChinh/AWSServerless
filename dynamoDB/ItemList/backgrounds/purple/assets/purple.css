@@ -1,0 +1,9 @@
+/* ============================================================
+   BACKGROUND THEME: Nebula Purple
+   ============================================================ */
+:root {
+  --desktop-user-background: 
+    radial-gradient(circle at 20% 80%, rgba(168, 85, 247, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 80% 20%, rgba(192, 132, 252, 0.12) 0%, transparent 40%),
+    radial-gradient(ellipse at bottom, #2b0c3d 0%, #0c0218 100%);
+}

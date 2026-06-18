@@ -1,0 +1,20 @@
+/* ============================================================
+   BACKGROUND THEME: Deep Void
+   ============================================================ */
+:root {
+  --desktop-user-background: 
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.03) 0%, transparent 50%),
+    linear-gradient(135deg, #020617 0%, #000 100%);
+}
+
+/* Subtle scanline for the void */
+.os-desktop::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
+  background-size: 100% 4px, 3px 100%;
+  z-index: 100;
+  opacity: 0.2;
+}
