@@ -1,41 +1,63 @@
-import {
-    GetCommand,
-    PutCommand,
-    UpdateCommand,
-    BatchGetCommand,
-    BatchWriteCommand,
-} from "@aws-sdk/lib-dynamodb";
+import { GetCommand, UpdateCommand, BatchGetCommand, BatchWriteCommand, } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "../database.mjs";
 import { successResponse, errorResponse } from "../response.mjs";
 
-// ═══════════════════════════════════════════════════════
-// HELPER
-// ═══════════════════════════════════════════════════════
 const getUserId = (event) => {
     const auth = event.requestContext?.authorizer;
     return auth?.jwt?.claims?.sub || auth?.claims?.sub || null;
 };
 
-// ═══════════════════════════════════════════════════════
-// Cognito PostConfirmation Trigger
-// Khởi tạo profile + cấp background default vào inventory
-// ═══════════════════════════════════════════════════════
-export const handleInitUser = async (event) => {
+const handleInitUser = async (event) => {
     const userId = event.request.userAttributes.sub;
     const { email, name } = event.request.userAttributes;
     const now = Date.now();
-
-    // avatarUrl trỏ về URL mặc định (full URL lưu trong env, client dùng thẳng)
+    const defaultItemsConfig = {
+        background: "bg_default",
+    };
+    const defaultItemSKs = Object.values(defaultItemsConfig);
+    if (defaultItemSKs.length > 0) {
+        try {
+            const keysToGet = defaultItemSKs.map(sk => ({
+                PK: "item",
+                SK: sk
+            }));
+            const getResponse = await docClient.send(
+                new BatchGetCommand({
+                    RequestItems: {
+                        [process.env.ITEM_TABLE]: {
+                            Keys: keysToGet
+                        }
+                    }
+                })
+            );
+            systemItems = getResponse.Responses[process.env.ITEM_TABLE] || [];
+        } catch (error) {
+            console.error("DynamoDB BatchGet error:", error);
+            throw new Error("Failed to fetch default items from Database.");
+        }
+    }
+    const inventoryPutRequests = systemItems.map(item => {
+        const { PK, SK, currencyType, price, isLimited, ...coreAttributes } = item;
+        return {
+            PutRequest: {
+                Item: {
+                    ...coreAttributes,
+                    PK: userId,
+                    SK: SK,
+                    acquiredAt: new Date(now).toISOString()
+                }
+            }
+        };
+    });
     const profileItem = {
         PK: userId,
-        SK: "profile",
         information: {
             name: name || "N/A",
             email: email,
             avatarUrl: process.env.DEFAULT_AVATAR_URL,
         },
         budget: {
-            knowledgePoint: 0,
+            knowledgePoint: 1500,
             knowledgeCore: 0,
             sanity: 0,
             eCoin: 0,
@@ -53,9 +75,9 @@ export const handleInitUser = async (event) => {
             is5StarGuaranteed: false,
         },
         equippedCosmetics: {
-            equippedBackground: "default",
-            equippedButton: null,
-            equippedFrame: null,
+            equippedBackground: defaultItemsConfig.background || null,
+            equippedButton: defaultItemsConfig.button || null,
+            equippedFrame: defaultItemsConfig.frame || null,
             equippedTitles: [],
         },
         inventoryUpdatedAt: now,
@@ -65,31 +87,19 @@ export const handleInitUser = async (event) => {
         createdAt: now,
         updatedAt: now,
     };
-
-    // Cấp sẵn background default vào inventory
-    // imageUrl khớp với field imageUrl của item "default" trong ITEMDATA_TABLE
-    const inventoryDefaultBg = {
-        PK: userId,
-        SK: "default",
-        rarity: "3",
-        name: "Default Background",
-        imageUrl: "background/default/default.jpg",
-        itemType: "background",
-        collectFrom: null,
-        acquiredAt: new Date(now).toISOString(),
+    const requestItems = {
+        [process.env.USER_TABLE]: [
+            { PutRequest: { Item: profileItem } },
+        ]
     };
-
+    if (inventoryPutRequests.length > 0) {
+        requestItems
+        [process.env.INVENTORY_TABLE] = inventoryPutRequests;
+    }
     try {
         await docClient.send(
             new BatchWriteCommand({
-                RequestItems: {
-                    [process.env.USER_TABLE]: [
-                        { PutRequest: { Item: profileItem } },
-                    ],
-                    [process.env.INVENTORY_TABLE]: [
-                        { PutRequest: { Item: inventoryDefaultBg } },
-                    ],
-                },
+                RequestItems: requestItems
             })
         );
         console.log(`Khởi tạo thành công profile và inventory cho user: ${email}`);
@@ -97,22 +107,17 @@ export const handleInitUser = async (event) => {
         console.error("DynamoDB BatchWrite error:", error);
         throw new Error("Failed to initialize user data in DynamoDB.");
     }
-
     return event;
 };
 
-// ═══════════════════════════════════════════════════════
-// GET /get-profile
-// ═══════════════════════════════════════════════════════
 export const handleGetProfile = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
-
     try {
         const result = await docClient.send(
             new GetCommand({
                 TableName: process.env.USER_TABLE,
-                Key: { PK: userId, SK: "profile" },
+                Key: { PK: userId },
             })
         );
         if (result.Item) {
@@ -259,3 +264,7 @@ export const handleEquipCosmetics = async (event) => {
         return errorResponse(500, "Lỗi máy chủ nội bộ");
     }
 };
+
+export {
+    handleInitUser
+}

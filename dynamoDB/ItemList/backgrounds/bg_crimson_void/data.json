@@ -1,11 +1,11 @@
 {
     "PK": "item",
-    "SK": "default",
+    "SK": "bg_crimson_void",
     "itemType": "background",
-    "name": "Default Background",
-    "rarity": "3",
+    "name": "Crimson Void Background",
+    "rarity": "5",
     "currencyType": null,
     "price": null,
-    "collectFrom": null,
+    "collectFrom": "gacha",
     "isLimited": true
 }

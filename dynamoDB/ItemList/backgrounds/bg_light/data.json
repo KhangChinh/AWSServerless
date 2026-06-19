@@ -1,8 +1,8 @@
 {
     "PK": "item",
-    "SK": "dark",
+    "SK": "bg_light",
     "itemType": "background",
-    "name": "Dark Background",
+    "name": "Light Background",
     "rarity": "4",
     "currencyType": null,
     "price": null,

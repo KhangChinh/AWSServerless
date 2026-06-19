@@ -1,11 +1,11 @@
 {
     "PK": "item",
-    "SK": "purple",
+    "SK": "bg_purple",
     "itemType": "background",
     "name": "Purple Background",
     "rarity": "4",
-    "currencyType": null,
-    "price": null,
-    "collectFrom": "gacha",
+    "currencyType": "eCoin",
+    "price": 1000,
+    "collectFrom": "eCoinShop",
     "isLimited": true
 }

@@ -1,11 +1,11 @@
 {
     "PK": "item",
-    "SK": "crimson_void",
+    "SK": "bd_default",
     "itemType": "background",
-    "name": "Crimson Void Background",
-    "rarity": "5",
+    "name": "Default Background",
+    "rarity": "3",
     "currencyType": null,
     "price": null,
-    "collectFrom": "default",
+    "collectFrom": null,
     "isLimited": true
 }

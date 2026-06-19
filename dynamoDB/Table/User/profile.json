@@ -24,8 +24,8 @@
         "is5StarGuaranteed": false
     },
     "equippedCosmetics": {
-        "equippedTheme": "default_dark",
-        "equippedButton": "default_button",
+        "equippedBackground": "bg_default",
+        "equippedButton": null,
         "equippedFrame": null,
         "equippedTitles": []
     },
