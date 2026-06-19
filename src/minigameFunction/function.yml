@@ -1,0 +1,51 @@
+getMinigameLevels:
+  handler: src/minigameFunction/minigameService.handleGetLevels
+  events:
+    - httpApi:
+        path: /minigame/levels
+        method: get
+        authorizer:
+          name: myCognitoAuth
+
+startMinigame:
+  handler: src/minigameFunction/minigameService.handleStartGame
+  events:
+    - httpApi:
+        path: /minigame/start
+        method: post
+        authorizer:
+          name: myCognitoAuth
+
+endMinigame:
+  handler: src/minigameFunction/minigameService.handleEndGame
+  events:
+    - httpApi:
+        path: /minigame/end
+        method: post
+        authorizer:
+          name: myCognitoAuth
+
+getGlobalLeaderboard:
+  handler: src/minigameFunction/minigameService.handleGetGlobalLeaderboard
+  events:
+    - httpApi:
+        path: /minigame/leaderboard/global
+        method: get
+        authorizer:
+          name: myCognitoAuth
+
+getFriendsLeaderboard:
+  handler: src/minigameFunction/minigameService.handleGetFriendsLeaderboard
+  events:
+    - httpApi:
+        path: /minigame/leaderboard/friends
+        method: get
+        authorizer:
+          name: myCognitoAuth
+
+leaderboardWorker:
+  handler: src/minigameFunction/minigameService.handleLeaderboardWorker
+  events:
+    - schedule:
+        rate: rate(10 minutes)
+        enabled: true

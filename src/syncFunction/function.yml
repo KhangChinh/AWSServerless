@@ -1,0 +1,53 @@
+syncAll:
+  handler: src/syncFunction/syncService.handleSyncAll
+  events:
+    - httpApi:
+        path: /sync-all
+        method: post
+        authorizer:
+          name: myCognitoAuth
+
+syncProfile:
+  handler: src/syncFunction/syncService.handleSyncProfile
+  events:
+    - httpApi:
+        path: /sync-profile
+        method: get
+        authorizer:
+          name: myCognitoAuth
+
+syncInventory:
+  handler: src/syncFunction/syncService.handleSyncInventory
+  events:
+    - httpApi:
+        path: /sync-inventory
+        method: get
+        authorizer:
+          name: myCognitoAuth
+
+syncGachaHistory:
+  handler: src/syncFunction/syncService.handleSyncGachaHistory
+  events:
+    - httpApi:
+        path: /sync-gacha-history
+        method: get
+        authorizer:
+          name: myCognitoAuth
+
+syncFriends:
+  handler: src/syncFunction/syncService.handleSyncFriends
+  events:
+    - httpApi:
+        path: /sync-friends
+        method: get
+        authorizer:
+          name: myCognitoAuth
+
+getMasterData:
+  handler: src/syncFunction/syncService.handleGetMasterData
+  events:
+    - httpApi:
+        path: /master-data
+        method: get
+        authorizer:
+          name: myCognitoAuth

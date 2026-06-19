@@ -1,0 +1,8 @@
+exchangeKPToCore:
+  handler: src/currencyFunction/currencyService.handleExchangeKPToCore
+  events:
+    - httpApi:
+        path: /currency/exchange
+        method: post
+        authorizer:
+          name: myCognitoAuth

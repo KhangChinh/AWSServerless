@@ -1,14 +1,5 @@
-getUser:
-  handler: src/userFunction/userService.handleGetUser
-  events:
-    - httpApi:
-        path: /get-user
-        method: get
-        authorizer:
-          name: myCognitoAuth
-
 postConfirmUser:
-  handler: src/userFunction/userService.handleInitUser
+  handler: src/userFunction/profileService.handleInitUser
   events:
     - cognitoUserPool:
         pool: User pool - diktu
@@ -16,7 +7,7 @@ postConfirmUser:
         existing: true
 
 getProfile:
-  handler: src/userFunction/userService.handleGetProfile
+  handler: src/userFunction/profileService.handleGetProfile
   events:
     - httpApi:
         path: /get-profile
@@ -25,7 +16,7 @@ getProfile:
           name: myCognitoAuth
 
 updateProfile:
-  handler: src/userFunction/userService.handleUpdateProfile
+  handler: src/userFunction/profileService.handleUpdateProfile
   events:
     - httpApi:
         path: /update-profile
@@ -34,10 +25,28 @@ updateProfile:
           name: myCognitoAuth
 
 equipCosmetics:
-  handler: src/userFunction/userService.handleEquipCosmetics
+  handler: src/userFunction/profileService.handleEquipCosmetics
   events:
     - httpApi:
         path: /change-cosmetics
         method: put
+        authorizer:
+          name: myCognitoAuth
+
+presignAvatar:
+  handler: src/userFunction/avatarService.handlePresignAvatar
+  events:
+    - httpApi:
+        path: /avatar/presign
+        method: post
+        authorizer:
+          name: myCognitoAuth
+
+confirmAvatar:
+  handler: src/userFunction/avatarService.handleConfirmAvatar
+  events:
+    - httpApi:
+        path: /avatar/confirm
+        method: post
         authorizer:
           name: myCognitoAuth

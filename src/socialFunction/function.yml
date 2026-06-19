@@ -1,0 +1,54 @@
+searchUser:
+  handler: src/socialFunction/searchService.handleSearchUser
+  events:
+    - httpApi:
+        path: /friends/search
+        method: get
+        authorizer:
+          name: myCognitoAuth
+
+streamIndexer:
+  handler: src/socialFunction/searchService.handleStreamIndexer
+  events:
+    - stream:
+        type: dynamodb
+        arn: ${env:USER_TABLE_STREAM_ARN}
+        startingPosition: TRIM_HORIZON
+        batchSize: 10
+        enabled: true
+
+getFriends:
+  handler: src/socialFunction/friendService.handleGetFriends
+  events:
+    - httpApi:
+        path: /friends
+        method: get
+        authorizer:
+          name: myCognitoAuth
+
+sendFriendRequest:
+  handler: src/socialFunction/friendService.handleSendFriendRequest
+  events:
+    - httpApi:
+        path: /friends/request
+        method: post
+        authorizer:
+          name: myCognitoAuth
+
+acceptFriendRequest:
+  handler: src/socialFunction/friendService.handleAcceptFriendRequest
+  events:
+    - httpApi:
+        path: /friends/accept
+        method: post
+        authorizer:
+          name: myCognitoAuth
+
+removeFriend:
+  handler: src/socialFunction/friendService.handleRemoveFriend
+  events:
+    - httpApi:
+        path: /friends/remove
+        method: post
+        authorizer:
+          name: myCognitoAuth

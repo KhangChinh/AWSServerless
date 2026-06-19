@@ -6,7 +6,9 @@ provider:
   region: ap-southeast-1
   memorySize: 512
   environment:
+    OPENSEARCH_ENDPOINT: ${env:OPENSEARCH_ENDPOINT}
     ASSETS_BUCKET: ${env:ASSETS_BUCKET}
+    DEFAULT_AVATAR_URL: ${env:DEFAULT_AVATAR_URL}
     TABLE_NAME: ${env:TABLE_NAME}
     USER_TABLE: ${env:USER_TABLE}
     STUDY_TABLE: ${env:STUDY_TABLE}
@@ -20,6 +22,7 @@ provider:
   iam:
     role:
       statements:
+        # ── DynamoDB ──────────────────────────────────────
         - Effect: Allow
           Action:
             - dynamodb:GetItem
@@ -27,23 +30,50 @@ provider:
             - dynamodb:UpdateItem
             - dynamodb:DeleteItem
             - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:BatchGetItem
             - dynamodb:BatchWriteItem
-          Resource: 
+            - dynamodb:TransactWriteItems
+          Resource:
             - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:TABLE_NAME}"
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:TABLE_NAME}/index/*"
             - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:USER_TABLE}"
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:USER_TABLE}/index/*"
             - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:STUDY_TABLE}"
             - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:SOCIAL_TABLE}"
             - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:QUEST_TABLE}"
             - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:MINIGAME_TABLE}"
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:MINIGAME_TABLE}/index/*"
             - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:ITEMDATA_TABLE}"
             - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:INVENTORY_TABLE}"
             - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:GACHAHISTORY_TABLE}"
+        # ── DynamoDB Streams (streamIndexer Lambda) ───────
+        - Effect: Allow
+          Action:
+            - dynamodb:DescribeStream
+            - dynamodb:GetRecords
+            - dynamodb:GetShardIterator
+            - dynamodb:ListStreams
+          Resource:
+            - "${env:USER_TABLE_STREAM_ARN}"
+        # ── S3 ────────────────────────────────────────────
         - Effect: Allow
           Action:
             - s3:GetObject
             - s3:PutObject
-          Resource: 
-            - "arn:aws:s3:::${env:ASSETS_BUCKET}/*"
+          Resource:
+            - "arn:aws:s3:::${env:ASSETS_BUCKET}/public-assets/*"
+            - "arn:aws:s3:::${env:ASSETS_BUCKET}/avatars/*"
+        # ── OpenSearch ────────────────────────────────────
+        - Effect: Allow
+          Action:
+            - es:ESHttpGet
+            - es:ESHttpPost
+            - es:ESHttpPut
+            - es:ESHttpDelete
+          Resource:
+            - "arn:aws:es:${self:provider.region}:*:domain/*"
+
   httpApi:
     cors: true
     authorizers:
@@ -58,3 +88,10 @@ functions:
   - ${file(./src/uploadFunction/function.yml)}
   - ${file(./src/userFunction/function.yml)}
   - ${file(./src/sessionFunction/function.yml)}
+  - ${file(./src/syncFunction/function.yml)}
+  - ${file(./src/gachaFunction/function.yml)}
+  - ${file(./src/shopFunction/function.yml)}
+  - ${file(./src/questFunction/function.yml)}
+  - ${file(./src/socialFunction/function.yml)}
+  - ${file(./src/minigameFunction/function.yml)}
+  - ${file(./src/currencyFunction/function.yml)}

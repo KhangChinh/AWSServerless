@@ -1,0 +1,8 @@
+gacha:
+  handler: src/gachaFunction/gachaService.handleGacha
+  events:
+    - httpApi:
+        path: /gacha
+        method: post
+        authorizer:
+          name: myCognitoAuth

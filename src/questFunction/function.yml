@@ -1,0 +1,17 @@
+getDaily:
+  handler: src/questFunction/questService.handleGetDaily
+  events:
+    - httpApi:
+        path: /daily
+        method: get
+        authorizer:
+          name: myCognitoAuth
+
+claimQuest:
+  handler: src/questFunction/questService.handleClaimQuest
+  events:
+    - httpApi:
+        path: /daily/claim
+        method: post
+        authorizer:
+          name: myCognitoAuth

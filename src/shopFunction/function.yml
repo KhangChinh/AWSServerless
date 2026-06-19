@@ -1,0 +1,17 @@
+getShop:
+  handler: src/shopFunction/shopService.handleGetShop
+  events:
+    - httpApi:
+        path: /shop
+        method: get
+        authorizer:
+          name: myCognitoAuth
+
+buyItem:
+  handler: src/shopFunction/shopService.handleBuyItem
+  events:
+    - httpApi:
+        path: /shop/buy
+        method: post
+        authorizer:
+          name: myCognitoAuth
