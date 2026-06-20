@@ -249,10 +249,13 @@ const handleEndSession = async (event) => {
         // Cập nhật tiến độ quest nếu session COMPLETED
         let questUpdate = null;
         if (status === "COMPLETED") {
-            try {
-                questUpdate = await updateQuestProgress(userId, "FOCUS", 1);
-            } catch (e) {
-                console.error("Lỗi cập nhật quest:", e);
+            const studiedMinutes = Math.floor(elapsed / 60);
+            if (studiedMinutes > 0) {
+                try {
+                    questUpdate = await updateQuestProgress(userId, "FOCUS", studiedMinutes);
+                } catch (e) {
+                    console.error("Lỗi cập nhật quest:", e);
+                }
             }
         }
 

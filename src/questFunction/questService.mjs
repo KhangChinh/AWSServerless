@@ -63,38 +63,23 @@ const updateQuestProgress = async (userId, type, amount = 1) => {
     // Cập nhật all_daily
     const allDaily = updatedQuests["all_daily"];
     if (allDaily) {
-        const newAllProgress = (daily.all_daily_progress || 0) + allDailyDelta;
+        const newAllProgress = (allDaily.progress || 0) + allDailyDelta;
         const newAllCompleted = newAllProgress >= (allDaily.target || 4);
         updatedQuests["all_daily"] = {
             ...allDaily,
             progress: newAllProgress,
             isCompleted: newAllCompleted,
         };
-
-        // Ghi lại all_daily_progress và all_daily_completed vào daily root
-        await docClient.send(
-            new UpdateCommand({
-                TableName: process.env.QUEST_TABLE,
-                Key: { PK: userId, SK: "daily" },
-                UpdateExpression:
-                    "SET quests = :q, all_daily_progress = :adp, all_daily_completed = :adc",
-                ExpressionAttributeValues: {
-                    ":q": updatedQuests,
-                    ":adp": newAllProgress,
-                    ":adc": newAllCompleted,
-                },
-            })
-        );
-    } else {
-        await docClient.send(
-            new UpdateCommand({
-                TableName: process.env.QUEST_TABLE,
-                Key: { PK: userId, SK: "daily" },
-                UpdateExpression: "SET quests = :q",
-                ExpressionAttributeValues: { ":q": updatedQuests },
-            })
-        );
     }
+
+    await docClient.send(
+        new UpdateCommand({
+            TableName: process.env.QUEST_TABLE,
+            Key: { PK: userId, SK: "daily" },
+            UpdateExpression: "SET quests = :q",
+            ExpressionAttributeValues: { ":q": updatedQuests },
+        })
+    );
 
     return { updatedQuests };
 };
@@ -155,62 +140,7 @@ const handleClaimQuest = async (event) => {
             return errorResponse(410, "Daily đã hết hạn, vui lòng refresh");
         }
 
-        // Xử lý all_daily đặc biệt
-        if (questKey === "all_daily") {
-            if (!daily.all_daily_completed) {
-                return errorResponse(400, "Chưa hoàn thành tất cả nhiệm vụ ngày");
-            }
-            if (daily.all_daily_claimed) {
-                return errorResponse(409, "Đã nhận thưởng rồi");
-            }
-            const reward = daily.quests?.all_daily?.knowledgePoint || 100;
-            const nowMs = Date.now();
-
-            // Lấy profile
-            const profileResult = await docClient.send(
-                new GetCommand({
-                    TableName: process.env.USER_TABLE,
-                    Key: { PK: userId },
-                })
-            );
-            const profile = profileResult.Item;
-
-            await docClient.send(
-                new TransactWriteCommand({
-                    TransactItems: [
-                        {
-                            Update: {
-                                TableName: process.env.QUEST_TABLE,
-                                Key: { PK: userId, SK: "daily" },
-                                UpdateExpression: "SET all_daily_claimed = :true",
-                                ExpressionAttributeValues: { ":true": true },
-                            },
-                        },
-                        {
-                            Update: {
-                                TableName: process.env.USER_TABLE,
-                                Key: { PK: userId },
-                                UpdateExpression:
-                                    "SET budget.knowledgePoint = :kp, updatedAt = :now",
-                                ExpressionAttributeValues: {
-                                    ":kp": (profile.budget?.knowledgePoint || 0) + reward,
-                                    ":now": nowMs,
-                                },
-                            },
-                        },
-                    ],
-                })
-            );
-
-            return successResponse({
-                message: "Nhận thưởng hoàn thành tất cả nhiệm vụ thành công",
-                rewardKnowledgePoint: reward,
-                newKnowledgePoint: (profile.budget?.knowledgePoint || 0) + reward,
-                updatedAt: nowMs,
-            });
-        }
-
-        // Quest bình thường
+        // Lấy thông tin quest
         const quest = daily.quests?.[questKey];
         if (!quest) return errorResponse(404, "Không tìm thấy quest");
         if (!quest.isCompleted) return errorResponse(400, "Quest chưa hoàn thành");
