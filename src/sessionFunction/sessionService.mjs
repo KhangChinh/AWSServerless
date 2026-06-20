@@ -1,6 +1,7 @@
 import { PutCommand, GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "../database.mjs";
 import { successResponse, errorResponse } from "../response.mjs";
+import { updateQuestProgress } from "../questFunction/questService.mjs";
 
 // ═══════════════════════════════════════════
 // POST /start-session
@@ -245,10 +246,21 @@ const handleEndSession = async (event) => {
             }));
         }
 
+        // Cập nhật tiến độ quest nếu session COMPLETED
+        let questUpdate = null;
+        if (status === "COMPLETED") {
+            try {
+                questUpdate = await updateQuestProgress(userId, "FOCUS", 1);
+            } catch (e) {
+                console.error("Lỗi cập nhật quest:", e);
+            }
+        }
+
         return successResponse({
             status,
             actualDurationSeconds: elapsed,
-            earnedPoints: earnedPoints || 0
+            earnedPoints: earnedPoints || 0,
+            questUpdate: questUpdate?.updatedQuests || null,
         });
     } catch (error) {
         console.error("Lỗi kết thúc session:", error);
