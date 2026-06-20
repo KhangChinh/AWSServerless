@@ -12,7 +12,7 @@
             "isCompleted": false,
             "isClaimed": false
         },
-        "focus_daiy1": {
+        "focus_daily1": {
             "type": "FOCUS",
             "name": "Học mỗi ngày",
             "description": "Hoàn thành 30 phút học tập (test)",
@@ -41,10 +41,17 @@
             "knowledgePoint": 120,
             "isCompleted": true,
             "isClaimed": false
+        },
+        "all_daily": {
+            "type": "COMPLETE_DAILY",
+            "name": "Nỗ lực không ngừng",
+            "description": "Hoàn thành 4 nhiệm vụ ngày.",
+            "target": 4,
+            "progress": 1,
+            "knowledgePoint": 100,
+            "isCompleted": false,
+            "isClaimed": false
         }
     },
-    "all_daily_progress": 1,
-    "all_daily_completed": false,
-    "all_daily_claimed": false,
     "expiresAt": 1780444800
 }

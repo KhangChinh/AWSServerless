@@ -1,6 +1,7 @@
 import { GetCommand, UpdateCommand, BatchGetCommand, BatchWriteCommand, } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "../database.mjs";
 import { successResponse, errorResponse } from "../response.mjs";
+import { refreshDaily } from "../syncFunction/syncService.mjs";
 
 const getUserId = (event) => {
     const auth = event.requestContext?.authorizer;
@@ -107,6 +108,13 @@ const handleInitUser = async (event) => {
         console.error("DynamoDB BatchWrite error:", error);
         throw new Error("Failed to initialize user data in DynamoDB.");
     }
+    try {
+        await refreshDaily(userId, profileItem);
+        console.log(`Khởi tạo daily quest cho user: ${email}`);
+    } catch (error) {
+        console.error("Lỗi khởi tạo daily quest:", error);
+    }
+
     return event;
 };
 

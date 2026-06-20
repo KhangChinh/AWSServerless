@@ -136,9 +136,7 @@ const fetchFriendsPage = async (userId, exclusiveStartKey = null) => {
  */
 const refreshDaily = async (userId, profile) => {
     const now = Date.now();
-    const todayDay = Math.floor(now / 86400000); // số ngày từ epoch (UTC)
-
-    // Lấy tất cả quest từ bảng QUEST_TABLE (PK = "quest") — SỬ DỤNG CACHE
+    const todayDay = Math.floor(now / 86400000);
     const allQuests = await getCachedQuests(async () => {
         const questResult = await docClient.send(
             new QueryCommand({
@@ -149,16 +147,12 @@ const refreshDaily = async (userId, profile) => {
         );
         return questResult.Items || [];
     });
-
-    // Quest cố định
     const fixedQuest = allQuests.find((q) => q.SK === "focus_daily");
-    // Các quest random (loại trừ focus_daily)
-    const randomPool = allQuests.filter((q) => q.SK !== "focus_daily");
-    // Shuffle và lấy 3
+    const allDailyQuest = allQuests.find((q) => q.SK === "all_daily");
+    const randomPool = allQuests.filter((q) => q.SK !== "focus_daily" && q.SK !== "all_daily");
     const shuffled = randomPool.sort(() => Math.random() - 0.5).slice(0, 3);
-    const chosenQuests = fixedQuest ? [fixedQuest, ...shuffled] : shuffled.slice(0, 4);
-
-    // Build quests map
+    const fixedQuests = [fixedQuest, allDailyQuest].filter(Boolean);
+    const chosenQuests = [...fixedQuests, ...shuffled];
     const questsMap = {};
     for (const q of chosenQuests) {
         questsMap[q.SK] = {
@@ -172,33 +166,19 @@ const refreshDaily = async (userId, profile) => {
             isClaimed: false,
         };
     }
-    // All daily quest (meta quest)
-    questsMap["all_daily"] = {
-        type: "COMPLETE_DAILY",
-        name: "Nỗ lực không ngừng",
-        description: "Hoàn thành 4 nhiệm vụ ngày.",
-        target: 4,
-        knowledgePoint: 100,
-        progress: 0,
-        isCompleted: false,
-        isClaimed: false,
-    };
 
-    // Kiểm tra streak
     const lastFocusDay = profile?.studyStats?.lastFocusDate
         ? Math.floor(profile.studyStats.lastFocusDate)
         : null;
 
     let streakUpdate = null;
     if (lastFocusDay !== null && lastFocusDay !== todayDay - 1) {
-        // Không liên tục → reset streak
         streakUpdate = {
             streak: 0,
             updatedAt: now,
         };
     }
 
-    // expiresAt = cuối ngày hôm nay (UTC) tính theo giây
     const endOfTodayMs = (todayDay + 1) * 86400000;
     const expiresAt = Math.floor(endOfTodayMs / 1000);
 
@@ -207,12 +187,7 @@ const refreshDaily = async (userId, profile) => {
         SK: "daily",
         quests: questsMap,
         expiresAt,
-        all_daily_progress: 0,
-        all_daily_completed: false,
-        all_daily_claimed: false,
     };
-
-    // Cập nhật timeToStreak về 30 trong profile
     const profileUpdates = {
         UpdateExpression: "SET studyStats.timeToStreak = :tts, updatedAt = :now",
         ExpressionAttributeValues: {
@@ -220,21 +195,17 @@ const refreshDaily = async (userId, profile) => {
             ":now": now,
         },
     };
-
     if (streakUpdate) {
         profileUpdates.UpdateExpression += ", studyStats.streak = :streak";
         profileUpdates.ExpressionAttributeValues[":streak"] = 0;
     }
-
     await Promise.all([
-        // Ghi daily mới — dùng static PutCommand
         docClient.send(
             new PutCommand({
                 TableName: process.env.QUEST_TABLE,
                 Item: dailyItem,
             })
         ),
-        // Cập nhật profile
         docClient.send(
             new UpdateCommand({
                 TableName: process.env.USER_TABLE,
@@ -243,7 +214,6 @@ const refreshDaily = async (userId, profile) => {
             })
         ),
     ]);
-
     return dailyItem;
 };
 

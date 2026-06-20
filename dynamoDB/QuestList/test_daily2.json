@@ -1,0 +1,9 @@
+{
+    "PK": "quest",
+    "SK": "test_daily2",
+    "type": "FOCUS",
+    "name": "Tập trung 2",
+    "description": "Hoàn thành 2 phút học tập.",
+    "target": 2,
+    "knowledgePoint": 1500
+}
