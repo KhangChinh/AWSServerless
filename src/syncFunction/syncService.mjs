@@ -238,7 +238,7 @@ const refreshDaily = async (userId, profile) => {
         docClient.send(
             new UpdateCommand({
                 TableName: process.env.USER_TABLE,
-                Key: { PK: userId, SK: "profile" },
+                Key: { PK: userId },
                 ...profileUpdates,
             })
         ),

@@ -36,7 +36,7 @@ const handleExchangeKPToCore = async (event) => {
         const profileResult = await docClient.send(
             new GetCommand({
                 TableName: process.env.USER_TABLE,
-                Key: { PK: userId, SK: "profile" },
+                Key: { PK: userId },
             })
         );
         const profile = profileResult.Item;
@@ -56,7 +56,7 @@ const handleExchangeKPToCore = async (event) => {
         await docClient.send(
             new UpdateCommand({
                 TableName: process.env.USER_TABLE,
-                Key: { PK: userId, SK: "profile" },
+                Key: { PK: userId },
                 UpdateExpression:
                     "SET budget.knowledgePoint = :kp, budget.knowledgeCore = :kc, updatedAt = :now",
                 ConditionExpression: "budget.knowledgePoint >= :required",

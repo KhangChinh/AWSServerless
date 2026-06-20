@@ -3,7 +3,7 @@
     "information": {
         "name": "Nguyễn Văn A",
         "email": "a@example.com",
-        "avatarUrl": "https://cloudfront.net/avatar/usr_12345.jpg"
+        "avatarUrl": "avatars/default_avatar.jpg"
     },
     "budget": {
         "knowledgePoint": 1500,

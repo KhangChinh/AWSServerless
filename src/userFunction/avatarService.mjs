@@ -35,7 +35,7 @@ const handlePresignAvatar = async (event) => {
         const profileResult = await docClient.send(
             new GetCommand({
                 TableName: process.env.USER_TABLE,
-                Key: { PK: userId, SK: "profile" },
+                Key: { PK: userId },
             })
         );
         const profile = profileResult.Item;
@@ -95,7 +95,7 @@ const handleConfirmAvatar = async (event) => {
         const profileResult = await docClient.send(
             new GetCommand({
                 TableName: process.env.USER_TABLE,
-                Key: { PK: userId, SK: "profile" },
+                Key: { PK: userId },
             })
         );
         const profile = profileResult.Item;
@@ -110,7 +110,7 @@ const handleConfirmAvatar = async (event) => {
         await docClient.send(
             new UpdateCommand({
                 TableName: process.env.USER_TABLE,
-                Key: { PK: userId, SK: "profile" },
+                Key: { PK: userId },
                 UpdateExpression:
                     "SET information.avatarUrl = :url, avatarUpdatedAt = :now, updatedAt = :now",
                 ExpressionAttributeValues: {

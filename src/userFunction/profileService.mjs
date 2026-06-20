@@ -228,7 +228,7 @@ const handleEquipCosmetics = async (event) => {
         await docClient.send(
             new UpdateCommand({
                 TableName: process.env.USER_TABLE,
-                Key: { PK: userId, SK: "profile" },
+                Key: { PK: userId },
                 UpdateExpression:
                     "SET equippedCosmetics.equippedBackground = :bg, " +
                     "equippedCosmetics.equippedFrame = :frame, " +
@@ -245,7 +245,7 @@ const handleEquipCosmetics = async (event) => {
         const result = await docClient.send(
             new GetCommand({
                 TableName: process.env.USER_TABLE,
-                Key: { PK: userId, SK: "profile" },
+                Key: { PK: userId },
             })
         );
         return successResponse({

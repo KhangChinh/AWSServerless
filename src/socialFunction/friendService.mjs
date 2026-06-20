@@ -83,13 +83,13 @@ const handleSendFriendRequest = async (event) => {
             docClient.send(
                 new GetCommand({
                     TableName: process.env.USER_TABLE,
-                    Key: { PK: userId, SK: "profile" },
+                    Key: { PK: userId },
                 })
             ),
             docClient.send(
                 new GetCommand({
                     TableName: process.env.USER_TABLE,
-                    Key: { PK: targetUserId, SK: "profile" },
+                    Key: { PK: targetUserId },
                 })
             ),
         ]);
@@ -137,7 +137,7 @@ const handleSendFriendRequest = async (event) => {
                     {
                         Update: {
                             TableName: process.env.USER_TABLE,
-                            Key: { PK: userId, SK: "profile" },
+                            Key: { PK: userId },
                             UpdateExpression: "SET friendUpdatedAt = :now, updatedAt = :now",
                             ExpressionAttributeValues: { ":now": now },
                         },
@@ -146,7 +146,7 @@ const handleSendFriendRequest = async (event) => {
                     {
                         Update: {
                             TableName: process.env.USER_TABLE,
-                            Key: { PK: targetUserId, SK: "profile" },
+                            Key: { PK: targetUserId },
                             UpdateExpression: "SET friendUpdatedAt = :now, updatedAt = :now",
                             ExpressionAttributeValues: { ":now": now },
                         },
@@ -220,7 +220,7 @@ const handleAcceptFriendRequest = async (event) => {
                     {
                         Update: {
                             TableName: process.env.USER_TABLE,
-                            Key: { PK: userId, SK: "profile" },
+                            Key: { PK: userId },
                             UpdateExpression: "SET friendUpdatedAt = :now, updatedAt = :now",
                             ExpressionAttributeValues: { ":now": now },
                         },
@@ -228,7 +228,7 @@ const handleAcceptFriendRequest = async (event) => {
                     {
                         Update: {
                             TableName: process.env.USER_TABLE,
-                            Key: { PK: targetUserId, SK: "profile" },
+                            Key: { PK: targetUserId },
                             UpdateExpression: "SET friendUpdatedAt = :now, updatedAt = :now",
                             ExpressionAttributeValues: { ":now": now },
                         },
@@ -269,7 +269,7 @@ const handleRemoveFriend = async (event) => {
                     {
                         Update: {
                             TableName: process.env.USER_TABLE,
-                            Key: { PK: userId, SK: "profile" },
+                            Key: { PK: userId },
                             UpdateExpression: "SET friendUpdatedAt = :now, updatedAt = :now",
                             ExpressionAttributeValues: { ":now": now },
                         },
@@ -277,7 +277,7 @@ const handleRemoveFriend = async (event) => {
                     {
                         Update: {
                             TableName: process.env.USER_TABLE,
-                            Key: { PK: targetUserId, SK: "profile" },
+                            Key: { PK: targetUserId },
                             UpdateExpression: "SET friendUpdatedAt = :now, updatedAt = :now",
                             ExpressionAttributeValues: { ":now": now },
                         },

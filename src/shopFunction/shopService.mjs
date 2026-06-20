@@ -116,7 +116,7 @@ const handleBuyItem = async (event) => {
         const profileResult = await docClient.send(
             new GetCommand({
                 TableName: process.env.USER_TABLE,
-                Key: { PK: userId, SK: "profile" },
+                Key: { PK: userId },
             })
         );
         const profile = profileResult.Item;
@@ -140,7 +140,7 @@ const handleBuyItem = async (event) => {
                     {
                         Update: {
                             TableName: process.env.USER_TABLE,
-                            Key: { PK: userId, SK: "profile" },
+                            Key: { PK: userId },
                             UpdateExpression: `SET budget.#cur = :bal, updatedAt = :now, inventoryUpdatedAt = :now`,
                             ExpressionAttributeNames: { "#cur": currency },
                             ExpressionAttributeValues: {

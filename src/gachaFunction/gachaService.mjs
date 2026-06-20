@@ -109,7 +109,7 @@ const handleGacha = async (event) => {
         const profileResult = await docClient.send(
             new GetCommand({
                 TableName: process.env.USER_TABLE,
-                Key: { PK: userId, SK: "profile" },
+                Key: { PK: userId },
             })
         );
         const profile = profileResult.Item;
@@ -263,7 +263,7 @@ const handleGacha = async (event) => {
         transactItems.push({
             Update: {
                 TableName: process.env.USER_TABLE,
-                Key: { PK: userId, SK: "profile" },
+                Key: { PK: userId },
                 UpdateExpression: `SET budget.knowledgeCore = :kc,
                     budget.knowledgePoint = :kp,
                     budget.sanity = :sanity,

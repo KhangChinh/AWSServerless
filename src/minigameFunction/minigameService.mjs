@@ -135,7 +135,7 @@ const handleStartGame = async (event) => {
         const profileResult = await docClient.send(
             new GetCommand({
                 TableName: process.env.USER_TABLE,
-                Key: { PK: userId, SK: "profile" },
+                Key: { PK: userId },
             })
         );
         const profile = profileResult.Item;
@@ -207,7 +207,7 @@ const handleStartGame = async (event) => {
                     {
                         Update: {
                             TableName: process.env.USER_TABLE,
-                            Key: { PK: userId, SK: "profile" },
+                            Key: { PK: userId },
                             UpdateExpression:
                                 "SET budget.sanity = :sanity, updatedAt = :now",
                             ExpressionAttributeValues: {
@@ -321,7 +321,7 @@ const handleEndGame = async (event) => {
         const profileResult = await docClient.send(
             new GetCommand({
                 TableName: process.env.USER_TABLE,
-                Key: { PK: userId, SK: "profile" },
+                Key: { PK: userId },
             })
         );
         const profile = profileResult.Item;
@@ -464,7 +464,7 @@ const handleEndGame = async (event) => {
                     {
                         Update: {
                             TableName: process.env.USER_TABLE,
-                            Key: { PK: userId, SK: "profile" },
+                            Key: { PK: userId },
                             UpdateExpression:
                                 "SET budget.eCoin = :ecoin, budget.sanity = :sanity, updatedAt = :now",
                             ExpressionAttributeValues: {
@@ -483,8 +483,8 @@ const handleEndGame = async (event) => {
             gameId === "sudoku"
                 ? "PLAY_SUDOKU"
                 : gameId === "minesweeper"
-                ? "PLAY_MINESWEEPER"
-                : `PLAY_${gameId.toUpperCase()}`;
+                    ? "PLAY_MINESWEEPER"
+                    : `PLAY_${gameId.toUpperCase()}`;
 
         if (isWin) {
             await updateQuestProgress(userId, questType, 1);

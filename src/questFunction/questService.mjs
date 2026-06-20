@@ -112,7 +112,7 @@ const handleGetDaily = async (event) => {
         const profileResult = await docClient.send(
             new GetCommand({
                 TableName: process.env.USER_TABLE,
-                Key: { PK: userId, SK: "profile" },
+                Key: { PK: userId },
             })
         );
         const profile = profileResult.Item;
@@ -170,7 +170,7 @@ const handleClaimQuest = async (event) => {
             const profileResult = await docClient.send(
                 new GetCommand({
                     TableName: process.env.USER_TABLE,
-                    Key: { PK: userId, SK: "profile" },
+                    Key: { PK: userId },
                 })
             );
             const profile = profileResult.Item;
@@ -189,7 +189,7 @@ const handleClaimQuest = async (event) => {
                         {
                             Update: {
                                 TableName: process.env.USER_TABLE,
-                                Key: { PK: userId, SK: "profile" },
+                                Key: { PK: userId },
                                 UpdateExpression:
                                     "SET budget.knowledgePoint = :kp, updatedAt = :now",
                                 ExpressionAttributeValues: {
@@ -222,7 +222,7 @@ const handleClaimQuest = async (event) => {
         const profileResult = await docClient.send(
             new GetCommand({
                 TableName: process.env.USER_TABLE,
-                Key: { PK: userId, SK: "profile" },
+                Key: { PK: userId },
             })
         );
         const profile = profileResult.Item;
@@ -252,7 +252,7 @@ const handleClaimQuest = async (event) => {
                     {
                         Update: {
                             TableName: process.env.USER_TABLE,
-                            Key: { PK: userId, SK: "profile" },
+                            Key: { PK: userId },
                             UpdateExpression:
                                 "SET budget.knowledgePoint = :kp, updatedAt = :nowMs",
                             ExpressionAttributeValues: {
