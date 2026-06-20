@@ -1,14 +1,14 @@
-startSession:
-  handler: src/sessionFunction/sessionService.handleStartSession
+startStudySession:
+  handler: src/sessionFunction/studySessionService.handleStartSession
   events:
     - httpApi:
-        path: /start-session
+        path: /start-study-session
         method: post
         authorizer:
           name: myCognitoAuth
 
 recordStrike:
-  handler: src/sessionFunction/sessionService.handleRecordStrike
+  handler: src/sessionFunction/studySessionService.handleRecordStrike
   events:
     - httpApi:
         path: /strike
@@ -17,10 +17,10 @@ recordStrike:
           name: myCognitoAuth
 
 endSession:
-  handler: src/sessionFunction/sessionService.handleEndSession
+  handler: src/sessionFunction/studySessionService.handleEndSession
   events:
     - httpApi:
-        path: /end-session
+        path: /end-study-session
         method: post
         authorizer:
           name: myCognitoAuth

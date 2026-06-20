@@ -2,7 +2,7 @@ postConfirmUser:
   handler: src/userFunction/profileService.handleInitUser
   events:
     - cognitoUserPool:
-        pool: User pool - diktu
+        pool: ${env:USER_POOL_NAME}
         trigger: PostConfirmation
         existing: true
 

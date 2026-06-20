@@ -142,7 +142,7 @@ const handleUpdateProfile = async (event) => {
         }
 
         const now = Date.now();
-        const updateResult = await docClient.send(
+        await docClient.send(
             new UpdateCommand({
                 TableName: process.env.USER_TABLE,
                 Key: { PK: userId },
@@ -152,12 +152,17 @@ const handleUpdateProfile = async (event) => {
                     ":name": name.trim(),
                     ":now": now,
                 },
-                ReturnValues: "UPDATED_NEW",
+            })
+        );
+        const result = await docClient.send(
+            new GetCommand({
+                TableName: process.env.USER_TABLE,
+                Key: { PK: userId },
             })
         );
         return successResponse({
             message: "Cập nhật tên thành công",
-            data: updateResult.Attributes,
+            profile: result.Item,
         });
     } catch (error) {
         console.error("Lỗi cập nhật profile:", error);
@@ -220,7 +225,7 @@ const handleEquipCosmetics = async (event) => {
         }
 
         const now = Date.now();
-        const updateResult = await docClient.send(
+        await docClient.send(
             new UpdateCommand({
                 TableName: process.env.USER_TABLE,
                 Key: { PK: userId, SK: "profile" },
@@ -235,14 +240,17 @@ const handleEquipCosmetics = async (event) => {
                     ":titles": titles ?? [],
                     ":now": now,
                 },
-                ReturnValues: "UPDATED_NEW",
             })
         );
-
+        const result = await docClient.send(
+            new GetCommand({
+                TableName: process.env.USER_TABLE,
+                Key: { PK: userId, SK: "profile" },
+            })
+        );
         return successResponse({
             message: "Thay đổi trang bị thành công",
-            equippedCosmetics: updateResult.Attributes?.equippedCosmetics,
-            updatedAt: now,
+            profile: result.Item,
         });
     } catch (error) {
         console.error("Lỗi trang bị đồ:", error);
