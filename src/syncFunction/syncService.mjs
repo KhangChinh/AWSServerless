@@ -3,7 +3,6 @@ import { docClient } from "../database.mjs";
 import { successResponse, errorResponse } from "../response.mjs";
 import { getCachedQuests, getCachedMasterData } from "../cacheHelper.mjs";
 
-/** Lấy userId từ JWT authorizer */
 const getUserId = (event) => {
     const auth = event.requestContext?.authorizer;
     return auth?.jwt?.claims?.sub || auth?.claims?.sub || null;

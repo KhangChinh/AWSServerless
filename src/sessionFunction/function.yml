@@ -16,7 +16,7 @@ recordStrike:
         authorizer:
           name: myCognitoAuth
 
-endSession:
+endStudySession:
   handler: src/sessionFunction/studySessionService.handleEndSession
   events:
     - httpApi:
