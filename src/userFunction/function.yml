@@ -24,29 +24,3 @@ updateProfile:
         authorizer:
           name: myCognitoAuth
 
-equipCosmetics:
-  handler: src/userFunction/profileService.handleEquipCosmetics
-  events:
-    - httpApi:
-        path: /change-cosmetics
-        method: put
-        authorizer:
-          name: myCognitoAuth
-
-presignAvatar:
-  handler: src/userFunction/avatarService.handlePresignAvatar
-  events:
-    - httpApi:
-        path: /avatar/presign
-        method: post
-        authorizer:
-          name: myCognitoAuth
-
-confirmAvatar:
-  handler: src/userFunction/avatarService.handleConfirmAvatar
-  events:
-    - httpApi:
-        path: /avatar/confirm
-        method: post
-        authorizer:
-          name: myCognitoAuth
