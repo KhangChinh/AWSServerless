@@ -93,7 +93,7 @@ function rollSanity() {
 // POST /gacha
 // Body: { count: 1 | 10 }
 // ═══════════════════════════════════════════════════════
-export const handleGacha = async (event) => {
+const handleGacha = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -335,3 +335,5 @@ export const handleGacha = async (event) => {
         return errorResponse(500, "Lỗi máy chủ nội bộ");
     }
 };
+
+export { handleGacha };

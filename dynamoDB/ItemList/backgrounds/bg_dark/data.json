@@ -3,7 +3,7 @@
     "SK": "bg_dark",
     "itemType": "background",
     "name": "Dark Background",
-    "rarity": "4",
+    "rarity": 4,
     "currencyType": null,
     "price": null,
     "collectFrom": "gacha",

@@ -1,16 +1,7 @@
-import {
-    GetCommand,
-    PutCommand,
-    QueryCommand,
-    UpdateCommand,
-    BatchGetCommand,
-} from "@aws-sdk/lib-dynamodb";
+import { GetCommand, PutCommand, QueryCommand, UpdateCommand, BatchGetCommand, } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "../database.mjs";
 import { successResponse, errorResponse } from "../response.mjs";
-
-// ═══════════════════════════════════════════════════════
-// HELPERS
-// ═══════════════════════════════════════════════════════
+import { getCachedQuests, getCachedMasterData } from "../cacheHelper.mjs";
 
 /** Lấy userId từ JWT authorizer */
 const getUserId = (event) => {
@@ -18,15 +9,11 @@ const getUserId = (event) => {
     return auth?.jwt?.claims?.sub || auth?.claims?.sub || null;
 };
 
-/**
- * Lấy profile từ bảng USER_TABLE.
- * Trả về Item hoặc null.
- */
 const fetchProfile = async (userId) => {
     const result = await docClient.send(
         new GetCommand({
             TableName: process.env.USER_TABLE,
-            Key: { PK: userId, SK: "profile" },
+            Key: { PK: userId },
         })
     );
     return result.Item || null;
@@ -148,19 +135,21 @@ const fetchFriendsPage = async (userId, exclusiveStartKey = null) => {
  * Ghi đè lên SK "daily" của userId.
  * Trả về daily object mới.
  */
-export const refreshDaily = async (userId, profile) => {
+const refreshDaily = async (userId, profile) => {
     const now = Date.now();
     const todayDay = Math.floor(now / 86400000); // số ngày từ epoch (UTC)
 
-    // Lấy tất cả quest từ bảng QUEST_TABLE (PK = "quest")
-    const questResult = await docClient.send(
-        new QueryCommand({
-            TableName: process.env.QUEST_TABLE,
-            KeyConditionExpression: "PK = :qpk",
-            ExpressionAttributeValues: { ":qpk": "quest" },
-        })
-    );
-    const allQuests = questResult.Items || [];
+    // Lấy tất cả quest từ bảng QUEST_TABLE (PK = "quest") — SỬ DỤNG CACHE
+    const allQuests = await getCachedQuests(async () => {
+        const questResult = await docClient.send(
+            new QueryCommand({
+                TableName: process.env.QUEST_TABLE,
+                KeyConditionExpression: "PK = :qpk",
+                ExpressionAttributeValues: { ":qpk": "quest" },
+            })
+        );
+        return questResult.Items || [];
+    });
 
     // Quest cố định
     const fixedQuest = allQuests.find((q) => q.SK === "focus_daily");
@@ -263,7 +252,7 @@ export const refreshDaily = async (userId, profile) => {
  * Lấy hoặc refresh daily của userId.
  * Trả về { daily, isNew } – isNew = true nếu vừa tạo mới
  */
-export const getOrRefreshDaily = async (userId, profile) => {
+const getOrRefreshDaily = async (userId, profile) => {
     const now = Math.floor(Date.now() / 1000);
 
     const result = await docClient.send(
@@ -297,7 +286,7 @@ export const getOrRefreshDaily = async (userId, profile) => {
 //   getDaily?: boolean
 // }
 // ───────────────────────────────────────────────────────
-export const handleSyncAll = async (event) => {
+const handleSyncAll = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -365,7 +354,7 @@ export const handleSyncAll = async (event) => {
 // ───────────────────────────────────────────────────────
 // GET /sync-profile
 // ───────────────────────────────────────────────────────
-export const handleSyncProfile = async (event) => {
+const handleSyncProfile = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -385,7 +374,7 @@ export const handleSyncProfile = async (event) => {
 // GET /sync-inventory
 // Query params: lastKey (JSON string, optional)
 // ───────────────────────────────────────────────────────
-export const handleSyncInventory = async (event) => {
+const handleSyncInventory = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -408,7 +397,7 @@ export const handleSyncInventory = async (event) => {
 // GET /sync-gacha-history
 // Query params: lastKey (JSON string, optional)
 // ───────────────────────────────────────────────────────
-export const handleSyncGachaHistory = async (event) => {
+const handleSyncGachaHistory = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -431,7 +420,7 @@ export const handleSyncGachaHistory = async (event) => {
 // GET /sync-friends
 // Query params: lastKey (JSON string, optional)
 // ───────────────────────────────────────────────────────
-export const handleSyncFriends = async (event) => {
+const handleSyncFriends = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -454,21 +443,37 @@ export const handleSyncFriends = async (event) => {
 // GET /master-data
 // Trả về toàn bộ item static từ ITEMDATA_TABLE (PK = "item")
 // ───────────────────────────────────────────────────────
-export const handleGetMasterData = async (event) => {
+const handleGetMasterData = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
     try {
-        const result = await docClient.send(
-            new QueryCommand({
-                TableName: process.env.ITEMDATA_TABLE,
-                KeyConditionExpression: "PK = :pk",
-                ExpressionAttributeValues: { ":pk": "item" },
-            })
-        );
-        return successResponse({ items: result.Items || [] });
+        // Lấy master data từ ITEMDATA_TABLE — SỬ DỤNG CACHE
+        const items = await getCachedMasterData(async () => {
+            const result = await docClient.send(
+                new QueryCommand({
+                    TableName: process.env.ITEMDATA_TABLE,
+                    KeyConditionExpression: "PK = :pk",
+                    ExpressionAttributeValues: { ":pk": "item" },
+                })
+            );
+            return result.Items || [];
+        });
+
+        return successResponse({ items });
     } catch (err) {
         console.error("Lỗi getMasterData:", err);
         return errorResponse(500, "Lỗi máy chủ nội bộ");
     }
+};
+
+export {
+    refreshDaily,
+    getOrRefreshDaily,
+    handleSyncAll,
+    handleSyncProfile,
+    handleSyncInventory,
+    handleSyncGachaHistory,
+    handleSyncFriends,
+    handleGetMasterData,
 };

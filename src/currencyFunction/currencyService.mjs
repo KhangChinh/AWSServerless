@@ -18,7 +18,7 @@ const KP_PER_CORE = 160;
 // Body: { amount: number }  (số lượng knowledgeCore muốn mua)
 // Đổi knowledgePoint → knowledgeCore
 // ═══════════════════════════════════════════════════════
-export const handleExchangeKPToCore = async (event) => {
+const handleExchangeKPToCore = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -85,3 +85,5 @@ export const handleExchangeKPToCore = async (event) => {
         return errorResponse(500, "Lỗi máy chủ nội bộ");
     }
 };
+
+export { handleExchangeKPToCore };

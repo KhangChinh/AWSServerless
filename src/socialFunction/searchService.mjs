@@ -44,7 +44,7 @@ async function osSearch(query) {
 // Tìm kiếm user theo name hoặc email qua OpenSearch.
 // Trả về thông tin công khai: userId, name, avatarUrl, streak, titles.
 // ═══════════════════════════════════════════════════════
-export const handleSearchUser = async (event) => {
+const handleSearchUser = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -107,7 +107,7 @@ export const handleSearchUser = async (event) => {
 // Sync user profile thay đổi vào OpenSearch index "users".
 // Handler được khai báo trong function.yml (streamIndexer).
 // ═══════════════════════════════════════════════════════
-export const handleStreamIndexer = async (event) => {
+const handleStreamIndexer = async (event) => {
     const ops = [];
 
     for (const record of event.Records) {
@@ -159,3 +159,5 @@ export const handleStreamIndexer = async (event) => {
 
     return { processed: ops.length };
 };
+
+export { handleSearchUser, handleStreamIndexer };

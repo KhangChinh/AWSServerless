@@ -3,7 +3,7 @@
     "SK": "bg_purple",
     "itemType": "background",
     "name": "Purple Background",
-    "rarity": "4",
+    "rarity": 4,
     "currencyType": "eCoin",
     "price": 1000,
     "collectFrom": "eCoinShop",

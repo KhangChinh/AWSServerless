@@ -21,7 +21,7 @@ const getUserId = (event) => {
 //   amount  – số lượng cộng vào progress (mặc định 1)
 // Returns: { updatedQuests } hoặc null nếu không có gì thay đổi
 // ═══════════════════════════════════════════════════════
-export const updateQuestProgress = async (userId, type, amount = 1) => {
+const updateQuestProgress = async (userId, type, amount = 1) => {
     // Lấy daily hiện tại
     const dailyResult = await docClient.send(
         new GetCommand({
@@ -103,7 +103,7 @@ export const updateQuestProgress = async (userId, type, amount = 1) => {
 // GET /daily
 // Trả về daily hiện tại (hoặc refresh nếu hết hạn)
 // ═══════════════════════════════════════════════════════
-export const handleGetDaily = async (event) => {
+const handleGetDaily = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -131,7 +131,7 @@ export const handleGetDaily = async (event) => {
 // Body: { questKey: string }
 // questKey là key trong daily.quests (vd: "focus_daily", "all_daily")
 // ═══════════════════════════════════════════════════════
-export const handleClaimQuest = async (event) => {
+const handleClaimQuest = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -280,3 +280,5 @@ export const handleClaimQuest = async (event) => {
         return errorResponse(500, "Lỗi máy chủ nội bộ");
     }
 };
+
+export { updateQuestProgress, handleGetDaily, handleClaimQuest };

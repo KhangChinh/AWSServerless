@@ -3,7 +3,7 @@
     "SK": "bg_crimson_void",
     "itemType": "background",
     "name": "Crimson Void Background",
-    "rarity": "5",
+    "rarity": 5,
     "currencyType": null,
     "price": null,
     "collectFrom": "gacha",

@@ -15,7 +15,7 @@ const getUserId = (event) => {
 // GET /shop?shopId=eCoinShop
 // Lấy thông tin shop và đánh dấu item nào user đã sở hữu
 // ═══════════════════════════════════════════════════════
-export const handleGetShop = async (event) => {
+const handleGetShop = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -66,7 +66,7 @@ export const handleGetShop = async (event) => {
 // Body: { shopId: string, itemId: string }
 // itemId là SK của item trong shop.activeItems (e.g., "item#frame_stone_1")
 // ═══════════════════════════════════════════════════════
-export const handleBuyItem = async (event) => {
+const handleBuyItem = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -197,3 +197,5 @@ export const handleBuyItem = async (event) => {
         return errorResponse(500, "Lỗi máy chủ nội bộ");
     }
 };
+
+export { handleGetShop, handleBuyItem };

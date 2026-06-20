@@ -21,7 +21,7 @@ const getUserId = (event) => {
 // Query params: lastKey (optional JSON string)
 // Lấy danh sách bạn bè phân trang (bao gồm PENDING_IN, PENDING_OUT, ACCEPTED)
 // ═══════════════════════════════════════════════════════
-export const handleGetFriends = async (event) => {
+const handleGetFriends = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -56,7 +56,7 @@ export const handleGetFriends = async (event) => {
 // Body: { targetUserId: string }
 // Người dùng A gửi lời mời kết bạn cho B
 // ═══════════════════════════════════════════════════════
-export const handleSendFriendRequest = async (event) => {
+const handleSendFriendRequest = async (event) => {
     const userId = getUserId(event); // A
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -170,7 +170,7 @@ export const handleSendFriendRequest = async (event) => {
 // Body: { targetUserId: string }
 // Người dùng B đồng ý lời mời của A
 // ═══════════════════════════════════════════════════════
-export const handleAcceptFriendRequest = async (event) => {
+const handleAcceptFriendRequest = async (event) => {
     const userId = getUserId(event); // B
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -249,7 +249,7 @@ export const handleAcceptFriendRequest = async (event) => {
 // Body: { targetUserId: string }
 // Từ chối / hủy lời mời / xóa bạn
 // ═══════════════════════════════════════════════════════
-export const handleRemoveFriend = async (event) => {
+const handleRemoveFriend = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -291,4 +291,11 @@ export const handleRemoveFriend = async (event) => {
         console.error("Lỗi removeFriend:", err);
         return errorResponse(500, "Lỗi máy chủ nội bộ");
     }
+};
+
+export {
+    handleGetFriends,
+    handleSendFriendRequest,
+    handleAcceptFriendRequest,
+    handleRemoveFriend,
 };

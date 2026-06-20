@@ -3,7 +3,7 @@ const defaultHeaders = {
     "Access-Control-Allow-Origin": "*",
 };
 
-export const buildResponse = (statusCode, body) => {
+const buildResponse = (statusCode, body) => {
     return {
         statusCode: statusCode,
         headers: defaultHeaders,
@@ -11,10 +11,12 @@ export const buildResponse = (statusCode, body) => {
     };
 };
 
-export const successResponse = (data = {}) => {
+const successResponse = (data = {}) => {
     return buildResponse(200, { success: true, ...data });
 };
 
-export const errorResponse = (statusCode, message) => {
+const errorResponse = (statusCode, message) => {
     return buildResponse(statusCode, { success: false, message });
 };
+
+export { buildResponse, successResponse, errorResponse };

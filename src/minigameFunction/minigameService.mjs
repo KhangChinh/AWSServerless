@@ -30,7 +30,7 @@ function calculateScore(maxScoreCap, durationSeconds, elapsedSeconds) {
 // GET /minigame/levels?gameId=sudoku&lastKey=...
 // Lấy danh sách màn chơi kèm score cao nhất của user
 // ═══════════════════════════════════════════════════════
-export const handleGetLevels = async (event) => {
+const handleGetLevels = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -109,7 +109,7 @@ export const handleGetLevels = async (event) => {
 // POST /minigame/start
 // Body: { gameId: string, levelId: string }
 // ═══════════════════════════════════════════════════════
-export const handleStartGame = async (event) => {
+const handleStartGame = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -250,7 +250,7 @@ export const handleStartGame = async (event) => {
 // POST /minigame/end
 // Body: { gameId: string, finalGrid?: string, actionLog?: Array }
 // ═══════════════════════════════════════════════════════
-export const handleEndGame = async (event) => {
+const handleEndGame = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -512,7 +512,7 @@ export const handleEndGame = async (event) => {
 // ═══════════════════════════════════════════════════════
 // GET /minigame/leaderboard/global?gameId=sudoku
 // ═══════════════════════════════════════════════════════
-export const handleGetGlobalLeaderboard = async (event) => {
+const handleGetGlobalLeaderboard = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -541,7 +541,7 @@ export const handleGetGlobalLeaderboard = async (event) => {
 // ═══════════════════════════════════════════════════════
 // GET /minigame/leaderboard/friends?gameId=sudoku
 // ═══════════════════════════════════════════════════════
-export const handleGetFriendsLeaderboard = async (event) => {
+const handleGetFriendsLeaderboard = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -606,7 +606,7 @@ export const handleGetFriendsLeaderboard = async (event) => {
 // EventBridge trigger (cron mỗi 10 phút)
 // Tính toán và ghi đè globalLeaderboard
 // ═══════════════════════════════════════════════════════
-export const handleLeaderboardWorker = async (event) => {
+const handleLeaderboardWorker = async (event) => {
     try {
         const gameIds = ["sudoku", "minesweeper"];
         const now = Date.now();
@@ -655,4 +655,13 @@ export const handleLeaderboardWorker = async (event) => {
         console.error("Lỗi leaderboardWorker:", err);
         throw err;
     }
+};
+
+export {
+    handleGetLevels,
+    handleStartGame,
+    handleEndGame,
+    handleGetGlobalLeaderboard,
+    handleGetFriendsLeaderboard,
+    handleLeaderboardWorker,
 };

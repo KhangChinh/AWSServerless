@@ -9,7 +9,6 @@ provider:
     OPENSEARCH_ENDPOINT: ${env:OPENSEARCH_ENDPOINT}
     ASSETS_BUCKET: ${env:ASSETS_BUCKET}
     DEFAULT_AVATAR_URL: ${env:DEFAULT_AVATAR_URL}
-    TABLE_NAME: ${env:TABLE_NAME}
     USER_TABLE: ${env:USER_TABLE}
     STUDY_TABLE: ${env:STUDY_TABLE}
     SOCIAL_TABLE: ${env:SOCIAL_TABLE}
@@ -35,8 +34,6 @@ provider:
             - dynamodb:BatchWriteItem
             - dynamodb:TransactWriteItems
           Resource:
-            - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:TABLE_NAME}"
-            - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:TABLE_NAME}/index/*"
             - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:USER_TABLE}"
             - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:USER_TABLE}/index/*"
             - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:STUDY_TABLE}"

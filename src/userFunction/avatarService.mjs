@@ -27,7 +27,7 @@ const AVATAR_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 //   - S3 key cố định: avatars/{userId}.jpg — ghi đè, không tạo file mới
 //   - avatarUrl trong DB luôn là path tương đối, frontend tự ghép CDN domain
 // ═══════════════════════════════════════════════════════
-export const handlePresignAvatar = async (event) => {
+const handlePresignAvatar = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -81,7 +81,7 @@ export const handlePresignAvatar = async (event) => {
 // Server tự tính path — client không gửi URL, không gửi key.
 // avatarUrl lưu dạng path tương đối, frontend ghép domain khi hiển thị.
 // ═══════════════════════════════════════════════════════
-export const handleConfirmAvatar = async (event) => {
+const handleConfirmAvatar = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -130,3 +130,5 @@ export const handleConfirmAvatar = async (event) => {
         return errorResponse(500, "Lỗi máy chủ nội bộ");
     }
 };
+
+export { handlePresignAvatar, handleConfirmAvatar };

@@ -110,7 +110,7 @@ const handleInitUser = async (event) => {
     return event;
 };
 
-export const handleGetProfile = async (event) => {
+const handleGetProfile = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
     try {
@@ -130,19 +130,13 @@ export const handleGetProfile = async (event) => {
     }
 };
 
-// ═══════════════════════════════════════════════════════
-// PUT /update-profile
-// Body: { name: string }
-// Chỉ cập nhật tên — avatar tách riêng qua avatarService
-// ═══════════════════════════════════════════════════════
-export const handleUpdateProfile = async (event) => {
+const handleUpdateProfile = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
     try {
         const body = JSON.parse(event.body || "{}");
         const { name } = body;
-
         if (!name || typeof name !== "string" || name.trim().length === 0) {
             return errorResponse(400, "name không hợp lệ");
         }
@@ -151,7 +145,7 @@ export const handleUpdateProfile = async (event) => {
         const updateResult = await docClient.send(
             new UpdateCommand({
                 TableName: process.env.USER_TABLE,
-                Key: { PK: userId, SK: "profile" },
+                Key: { PK: userId },
                 UpdateExpression: "SET information.#name = :name, updatedAt = :now",
                 ExpressionAttributeNames: { "#name": "name" },
                 ExpressionAttributeValues: {
@@ -171,16 +165,7 @@ export const handleUpdateProfile = async (event) => {
     }
 };
 
-// ═══════════════════════════════════════════════════════
-// PUT /change-cosmetics
-// Body: {
-//   backgroundId: string,   // bắt buộc, phải sở hữu
-//   frameId: string | null, // null = tháo frame
-//   titles: string[]        // tối đa 3
-// }
-// Server kiểm tra sở hữu bằng BatchGetItem trên INVENTORY_TABLE (flat schema)
-// ═══════════════════════════════════════════════════════
-export const handleEquipCosmetics = async (event) => {
+const handleEquipCosmetics = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -266,5 +251,8 @@ export const handleEquipCosmetics = async (event) => {
 };
 
 export {
-    handleInitUser
+    handleInitUser,
+    handleGetProfile,
+    handleUpdateProfile,
+    handleEquipCosmetics,
 }
