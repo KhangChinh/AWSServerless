@@ -84,4 +84,5 @@ provider:
 
 functions:
   - ${file(./src/uploadFunction/function.yml)}
+  - ${file(./src/userFunction/function.yml)}
   - ${file(./src/sessionFunction/function.yml)}

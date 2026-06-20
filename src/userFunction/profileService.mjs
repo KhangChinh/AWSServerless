@@ -15,6 +15,7 @@ const handleInitUser = async (event) => {
         background: "bg_default",
     };
     const defaultItemSKs = Object.values(defaultItemsConfig);
+    let systemItems = [];
     if (defaultItemSKs.length > 0) {
         try {
             const keysToGet = defaultItemSKs.map(sk => ({
@@ -24,13 +25,13 @@ const handleInitUser = async (event) => {
             const getResponse = await docClient.send(
                 new BatchGetCommand({
                     RequestItems: {
-                        [process.env.ITEM_TABLE]: {
+                        [process.env.ITEMDATA_TABLE]: {
                             Keys: keysToGet
                         }
                     }
                 })
             );
-            systemItems = getResponse.Responses[process.env.ITEM_TABLE] || [];
+            systemItems = getResponse.Responses[process.env.ITEMDATA_TABLE] || [];
         } catch (error) {
             console.error("DynamoDB BatchGet error:", error);
             throw new Error("Failed to fetch default items from Database.");
@@ -93,8 +94,7 @@ const handleInitUser = async (event) => {
         ]
     };
     if (inventoryPutRequests.length > 0) {
-        requestItems
-        [process.env.INVENTORY_TABLE] = inventoryPutRequests;
+        requestItems[process.env.INVENTORY_TABLE] = inventoryPutRequests;
     }
     try {
         await docClient.send(
@@ -194,7 +194,7 @@ const handleEquipCosmetics = async (event) => {
             }
         }
 
-        // BatchGetItem để kiểm tra sở hữu — static import, không dùng dynamic
+        // BatchGetItem để kiểm tra sở hữu
         const batchResult = await docClient.send(
             new BatchGetCommand({
                 RequestItems: {
