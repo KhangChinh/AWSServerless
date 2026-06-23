@@ -86,3 +86,10 @@ functions:
   - ${file(./src/uploadFunction/function.yml)}
   - ${file(./src/userFunction/function.yml)}
   - ${file(./src/sessionFunction/function.yml)}
+  - ${file(./src/currencyFunction/function.yml)}
+  - ${file(./src/gachaFunction/function.yml)}
+  - ${file(./src/minigameFunction/function.yml)}
+  - ${file(./src/questFunction/function.yml)}
+  - ${file(./src/shopFunction/function.yml)}
+  - ${file(./src/socialFunction/function.yml)}
+  - ${file(./src/syncFunction/function.yml)}

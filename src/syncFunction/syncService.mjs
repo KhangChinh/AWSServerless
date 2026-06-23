@@ -127,13 +127,6 @@ const fetchFriendsPage = async (userId, exclusiveStartKey = null) => {
     };
 };
 
-/**
- * Thuật toán refresh daily:
- * - 1 quest cố định: focus_daily
- * - 3 quest random từ các quest còn lại
- * Ghi đè lên SK "daily" của userId.
- * Trả về daily object mới.
- */
 const refreshDaily = async (userId, profile) => {
     const now = Date.now();
     const todayDay = Math.floor(now / 86400000);
@@ -223,7 +216,6 @@ const refreshDaily = async (userId, profile) => {
  */
 const getOrRefreshDaily = async (userId, profile) => {
     const now = Math.floor(Date.now() / 1000);
-
     const result = await docClient.send(
         new GetCommand({
             TableName: process.env.QUEST_TABLE,
@@ -258,7 +250,6 @@ const getOrRefreshDaily = async (userId, profile) => {
 const handleSyncAll = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
-
     try {
         const body = JSON.parse(event.body || "{}");
         const {

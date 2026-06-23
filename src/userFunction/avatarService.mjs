@@ -1,5 +1,5 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { S3Client } from "@aws-sdk/client-s3";
+import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
 import { GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "../database.mjs";
 import { successResponse, errorResponse } from "../response.mjs";
@@ -55,18 +55,22 @@ const handlePresignAvatar = async (event) => {
         // Key cố định theo userId — ghi đè file cũ thay vì tạo mới
         const s3Key = `avatars/${userId}.jpg`;
 
-        const presignedUrl = await getSignedUrl(
-            s3,
-            new PutObjectCommand({
-                Bucket: process.env.ASSETS_BUCKET,
-                Key: s3Key,
-                ContentType: "image/jpeg",
-            }),
-            { expiresIn: 300 } // 5 phút
-        );
+        const presignedPost = await createPresignedPost(s3, {
+            Bucket: process.env.ASSETS_BUCKET,
+            Key: s3Key,
+            Conditions: [
+                ["content-length-range", 1024, 5242880], // Từ 1KB đến 5MB
+                ["starts-with", "$Content-Type", "image/"] // Bắt buộc là file ảnh
+            ],
+            Fields: {
+                "Content-Type": "image/jpeg"
+            },
+            Expires: 300 // 5 phút
+        });
 
         return successResponse({
-            uploadUrl: presignedUrl,
+            url: presignedPost.url,
+            fields: presignedPost.fields,
             expiresIn: 300,
         });
     } catch (err) {

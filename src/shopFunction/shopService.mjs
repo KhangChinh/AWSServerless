@@ -1,5 +1,6 @@
 import {
     GetCommand,
+    BatchGetCommand,
     QueryCommand,
     TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
@@ -38,21 +39,42 @@ const handleGetShop = async (event) => {
             return errorResponse(410, "Shop đã hết hạn");
         }
 
-        // Kiểm tra từng item user đã sở hữu chưa
+        // Kiểm tra từng item user đã sở hữu chưa (dùng BatchGetCommand)
         const activeItems = shop.activeItems || [];
-        const enrichedItems = await Promise.all(
-            activeItems.map(async (item) => {
-                // SK inventory = SK của item (phần sau "item#")
-                const itemSK = item.itemId.replace("item#", "");
-                const invResult = await docClient.send(
-                    new GetCommand({
-                        TableName: process.env.INVENTORY_TABLE,
-                        Key: { PK: userId, SK: itemSK },
+        if (activeItems.length === 0) {
+            return successResponse({ shop: { ...shop, activeItems: [] } });
+        }
+
+        const keysToGet = activeItems.map(item => {
+            const itemSK = item.itemId.replace("item#", "");
+            return { PK: userId, SK: itemSK };
+        });
+
+        // BatchGetCommand (Giới hạn tối đa 100 items mỗi batch, thường shop không quá 100)
+        let ownedSet = new Set();
+        if (keysToGet.length > 0) {
+            // Tạm chia batch nếu > 100 (phòng hờ)
+            const BATCH_SIZE = 100;
+            for (let i = 0; i < keysToGet.length; i += BATCH_SIZE) {
+                const batchKeys = keysToGet.slice(i, i + BATCH_SIZE);
+                const batchResult = await docClient.send(
+                    new BatchGetCommand({
+                        RequestItems: {
+                            [process.env.INVENTORY_TABLE]: {
+                                Keys: batchKeys
+                            }
+                        }
                     })
                 );
-                return { ...item, owned: !!invResult.Item };
-            })
-        );
+                const responses = batchResult.Responses?.[process.env.INVENTORY_TABLE] || [];
+                responses.forEach(res => ownedSet.add(res.SK));
+            }
+        }
+
+        const enrichedItems = activeItems.map((item) => {
+            const itemSK = item.itemId.replace("item#", "");
+            return { ...item, owned: ownedSet.has(itemSK) };
+        });
 
         return successResponse({ shop: { ...shop, activeItems: enrichedItems } });
     } catch (err) {

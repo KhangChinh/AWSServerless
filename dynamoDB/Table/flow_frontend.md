@@ -4,7 +4,7 @@ khi đăng nhập thành công sẽ gọi /sync-all để lấy tất cả thôn
 
 có nút để ấn chỉnh sửa tên ở frontend, khi ấn đổi tên, validate giống với backend mới đc gọi API PUT /update-profile, body: { name }, hàm trả về thành công thì backend sẽ trả 1 profile.json mới, frontend lưu đè vào electron store mã hóa bằng safe storage, lưu vào redux và update state để render ra màn hình từ dữ liệu của redux (không cần gọi lại get profile).
 
-mỗi khi mở app (sau đăng nhập), hoặc khi app từ background trở lại, fe gọi POST /sync-all, body gửi lên: { updatedAt, inventoryUpdatedAt, gachaHistoryUpdatedAt, friendUpdatedAt, getDaily }. lần đầu mở app thì gửi tất cả = null (hoặc không gửi gì), backend sẽ trả về đầy đủ: profile, inventory, gachaHistory, friends, daily. từ lần sau fe gửi kèm các timestamp đã lưu trong redux, backend so sánh từng mốc thời gian với profile hiện tại trên DB: module nào timestamp khác thì trả dữ liệu mới, module nào giống thì bỏ qua. fe nhận response, phần nào có dữ liệu thì lưu đè vào electron store + redux. phần nào không có (undefined) thì giữ nguyên dữ liệu cũ.
+mỗi khi mở app (sau đăng nhập), hoặc khi app từ background trở lại (sau khi đã check qua lasted fetch với redux), fe gọi POST /sync-all, body gửi lên: { updatedAt, inventoryUpdatedAt, gachaHistoryUpdatedAt, friendUpdatedAt, getDaily }. lần đầu mở app thì gửi tất cả = null, backend sẽ trả về đầy đủ: profile, inventory (60 item đầu tiên), gachaHistory, friends, daily. từ lần sau fe gửi kèm các timestamp đã lưu trong redux, backend so sánh từng mốc thời gian với profile hiện tại trên DB: module nào timestamp khác thì trả dữ liệu mới, module nào giống thì bỏ qua. fe nhận response, phần nào có dữ liệu thì lưu đè vào electron store + redux. phần nào không có (undefined) thì giữ nguyên dữ liệu cũ.
 
 xử lý daily trong sync-all: backend luôn gọi hàm refresh daily để kiểm tra. nếu daily hết hạn thì tạo daily mới và luôn trả về cho client. nếu daily chưa hết hạn thì dựa vào cờ getDaily từ client để quyết định có gửi daily trong response hay không.
 
@@ -29,11 +29,10 @@ GET /master-data → gọi 1 lần khi mở app, trả về { items } là mảng
 
 đổi ảnh đại diện có cooldown 7 ngày, fe phải check avatarUpdatedAt trong profile để hiển thị cooldown còn lại, disable nút đổi ảnh nếu chưa hết cooldown.
 
-luồng đổi ảnh:
-1. fe gọi POST /avatar/presign → backend kiểm tra cooldown, nếu ok trả về { uploadUrl, expiresIn: 300 }. nếu chưa hết cooldown trả 429 kèm { remainMs, availableAt }.
-2. fe dùng uploadUrl (presigned URL) để PUT ảnh trực tiếp lên S3, content-type: image/jpeg, gửi binary ảnh. URL này hết hạn sau 5 phút.
-3. sau khi PUT thành công, fe gọi POST /avatar/confirm (không cần body). backend kiểm tra cooldown lần nữa để tránh race condition, sau đó tự tính path avatar = "avatars/{userId}.jpg", ghi vào DB (information.avatarUrl và avatarUpdatedAt).
-4. response confirm trả về { avatarUrl, avatarUpdatedAt }. fe lưu avatarUrl mới vào redux + electron store, update UI.
+luồng đổi avatar: 
+  1. fe gọi POST /avatar/presign để lấy `{ url, fields }` (chuẩn Presigned POST, giới hạn file <= 5MB để chống kẻ xấu bơm rác S3 tốn chi phí).
+  2. fe tạo `FormData()`, append tất cả các `fields` vào form theo thứ tự, cuối cùng append file ảnh vào `formData.append("file", imageFile)`. Gọi `fetch(url, { method: "POST", body: formData })` để đẩy lên S3. (Không set header Content-Type thủ công).
+  3. fe gọi POST /avatar/confirm để server check cooldown và ghi nhận (server tự sinh path tương đối), trả về profile mới. URL này hết hạn sau 5 phút.
 
 lưu ý: avatarUrl trong DB là path tương đối (vd: "avatars/userId.jpg"), fe phải tự ghép domain CDN phía trước để hiển thị. avatar mặc định khi tạo tài khoản lấy từ biến môi trường DEFAULT_AVATAR_URL. S3 key cố định theo userId nên đổi ảnh sẽ ghi đè file cũ, không tạo file mới.
 
@@ -45,16 +44,17 @@ backend dùng BatchGetItem kiểm tra user có sở hữu các item đó trong i
 
 lưu ý: profile còn có equippedButton nhưng hiện tại chưa dùng trong API change-cosmetics (chỉ set khi khởi tạo).
 
-fe phải lọc inventory theo itemType (background, frame, title) để hiển thị danh sách cho user chọn. chỉ hiện item user đã sở hữu.
+fe phải lọc inventory theo itemType (theme, frame, title) để hiển thị danh sách cho user chọn. chỉ hiện item user đã sở hữu.
 
 --- SESSION HỌC ---
 
-bắt đầu session: fe gọi POST /start-study-session, body: { mode: "casual" | "rank", durationMinutes }. mode casual cho phép dừng sớm (vẫn tính COMPLETED), mode rank phải học hết thời gian (dừng sớm = FAILED). backend tạo session với status PENDING trong bảng Study, trả { sessionId }. fe lưu sessionId vào state để dùng cho strike và end session. sessionId có dạng "session#{timestamp}".
+bắt đầu session: fe gọi POST /start-study-session, body: { mode: "casual" | "rank", durationMinutes }. mode casual cho phép dừng sớm (vẫn tính COMPLETED), mode rank phải học hết thời gian (dừng sớm = FAILED). backend tạo session với status PENDING trong bảng Study, trả { sessionId }. fe lưu sessionId vào state để dùng khi kết thúc. sessionId có dạng "session#{timestamp}".
 
-trong khi học, nếu user vi phạm (rời app, chuyển tab...), fe gọi POST /strike, body: { sessionId }. backend tự tăng strikeCount, nếu đủ 3 lần thì auto FAILED (cập nhật status và endTime), trả { strikeCount, sessionEnded: true }. fe kiểm tra sessionEnded, nếu true thì hiện thông báo session đã thất bại. nếu false thì hiện cảnh báo strike (vd: "Cảnh cáo lần 1/3").
+trong khi học, fe tự theo dõi sự kiện hệ thống (rời app, unfocus). fe **KHÔNG gọi API liên tục** để báo cáo vi phạm (nhằm tối ưu chi phí AWS và tránh bẫy Heartbeat). thay vào đó, fe lưu cục bộ mảng các thời điểm vi phạm thành dạng Telemetry `strikes: [ts1, ts2]`. Ngoài ra fe phải ghi nhận mảng `logs` định kỳ mỗi phút một lần (để chứng minh app vẫn đang chạy). (Khuyến nghị: để chống gian lận, electron nên dùng một hàm hash C++ addon nội bộ để ký 2 mảng data này).
 
-kết thúc session: fe gọi POST /end-study-session, body: { sessionId }. backend tự tính status dựa trên:
-- strikeCount >= 3 → FAILED
+kết thúc session: fe gọi POST /end-study-session, body: { sessionId, telemetryData: { strikes: [...], logs: [...] } }. backend tự tính status dựa trên dữ liệu tổng hợp:
+- telemetryData.strikes.length >= 3 → FAILED
+- telemetryData.logs rỗng và học > 15 phút → FAILED (nghi ngờ xóa giám sát)
 - elapsed >= expected - 30s → COMPLETED (cho phép lệch 30s do network delay)
 - casual mode dừng sớm → COMPLETED
 - rank mode dừng sớm → FAILED
@@ -138,29 +138,15 @@ lưu ý: dữ liệu OpenSearch được sync tự động từ DynamoDB Streams
 
 --- MINIGAME ---
 
-lấy danh sách màn chơi: fe gọi GET /minigame/levels?gameId=sudoku&lastKey=..., phân trang 20 item. backend query bảng Minigame (PK=gameId, filter attribute_exists(sanityCost) để loại session/stats/leaderboard), lấy trường PK, SK, name, sanityCost, requiredLevel, maxScoreCap, eCoin (không lấy baseMapConfig). đồng thời BatchGetItem score của userId (PK=userId, SK=score#gameId#levelId). gộp vào response: { levels, lastEvaluatedKey }. mỗi level có thêm score: null nếu chưa chơi, hoặc { personalBest, achievedAt } nếu đã chơi.
+lấy danh sách màn chơi: fe gọi GET /minigame/levels?gameId=sudoku&lastKey=..., phân trang 20 item. backend trả { levels, lastEvaluatedKey }. mỗi level có thêm score: null nếu chưa chơi, hoặc { personalBest, achievedAt } nếu đã chơi.
 
-fe hiển thị danh sách màn, màn nào có requiredLevel thì kiểm tra user đã có score cho level đó chưa → nếu chưa thì khóa (hiển thị ổ khóa). sanityCost hiển thị bên cạnh mỗi màn. score hiển thị personalBest nếu có.
+bắt đầu chơi: fe gọi POST /minigame/start, body: { gameId, levelId }. backend trừ sanity và sinh `gameToken` (HMAC ký hiệu).
+trả { gameToken, seed, baseMapConfig, newBudget, updatedAt }. fe lưu `gameToken` vào bộ nhớ và dùng seed + baseMapConfig để render game. (Backend áp dụng kiến trúc Stateless, không lưu game vào Database để tiết kiệm chi phí).
 
-bắt đầu chơi: fe gọi POST /minigame/start, body: { gameId, levelId }. backend dùng transaction:
-- lấy thông tin level (sanityCost, requiredLevel, baseMapConfig)
-- kiểm tra sanity đủ không → nếu thiếu trả 402 kèm { currentSanity, updatedAt }
-- kiểm tra requiredLevel: tìm score#gameId#requiredLevel xem đã chơi chưa → nếu chưa trả 403
-- tạo seed ngẫu nhiên, lấy solutionGrid từ baseMapConfig (hoặc từ seed tùy game)
-- tạo session (PK=userId, SK=session#gameId, status=PENDING, lưu seed, solutionGrid, startTime, sanityCost, levelId)
-- trừ sanity trong profile
-trả { seed, baseMapConfig (không có solutionGrid), newBudget, updatedAt }. fe dùng seed + baseMapConfig để generate bản đồ/câu đố trên client. fe bắt đầu đếm thời gian từ lúc nhận response.
-
-trong lúc chơi game, fe lưu log thao tác: mỗi thao tác ghi { ts (timestamp ms), action, ... }. nếu client bị tắt/crash thì trước khi tắt gửi request end session tính là thua.
-
-kết thúc chơi: fe gọi POST /minigame/end, body: { gameId, finalGrid, actionLog }. finalGrid: với sudoku là chuỗi lời giải, với minesweeper là "WIN" hoặc trạng thái board. backend tự tìm session PENDING của userId (PK=userId, SK=session#gameId), lấy solutionGrid và startTime ra. anti-cheat:
-- elapsed < 5 giây → thua (quá nhanh)
-- kiểm tra actionLog: mỗi cặp thao tác liên tiếp phải cách >= 200ms
-- so sánh finalGrid với solutionGrid
-pass cả 3 → thắng.
-
+kết thúc chơi: fe gọi POST /minigame/end, body: { gameId, gameToken, actionLog, finalGrid }. 
+**Đặc biệt với Minesweeper**: `finalGrid` phải là mảng các tọa độ ô đã click mở. Server sẽ decode `gameToken`, lấy `seed` dựng lại map trong RAM để đối soát độ chính xác của mọi lượt click, bảo đảm 100% Zero-Trust.
 response: { isWin, score, scoreUpdated, oldPersonalBest, earnedECoin, earnedSanity, newBudget, updatedAt }.
-- isWin = true: earnedECoin = eCoin của màn đó, score tính từ maxScoreCap giảm dần theo thời gian chơi. nếu scoreUpdated = true → hiện "Kỷ lục mới!". backend tạo/cập nhật bản ghi score#gameId#levelId và stats#gameId (levelsCompleted, totalScore, displayInfo).
+- isWin = true: earnedECoin = eCoin của màn đó, score tính từ maxScoreCap giảm dần theo thời gian chơi. nếu scoreUpdated = true → hiện "Kỷ lục mới!".
 - isWin = false: earnedSanity = 50% sanityCost đã tiêu. hiện animation thua.
 fe cập nhật budget trong redux (eCoin, sanity).
 

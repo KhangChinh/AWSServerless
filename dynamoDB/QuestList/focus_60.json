@@ -1,9 +1,0 @@
-{
-    "PK": "quest",
-    "SK": "focus_60",
-    "type": "FOCUS",
-    "name": "Tập trung cao độ",
-    "description": "Hoàn thành 60 phút học tập.",
-    "target": 60,
-    "knowledgePoint": 350
-}

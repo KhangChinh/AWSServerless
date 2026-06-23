@@ -1,9 +1,0 @@
-{
-    "PK": "quest",
-    "SK": "play_sudoku_1",
-    "type": "PLAY_SUDOKU",
-    "name": "Cùng Sudoku",
-    "description": "Chơi 1 ván Sudoku.",
-    "target": 1,
-    "knowledgePoint": 120
-}

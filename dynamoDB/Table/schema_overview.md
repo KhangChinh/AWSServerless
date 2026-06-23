@@ -9,7 +9,7 @@
     "information": {
         "name": "Nguyễn Văn A",
         "email": "a@example.com",
-        "avatarUrl": "https://cloudfront.net/avatar/usr_12345.jpg"
+        "avatarUrl": "avatars/default_avatar.jpg"
     },
     "budget": {
         "knowledgePoint": 1500,
@@ -30,7 +30,8 @@
         "is5StarGuaranteed": false
     },
     "equippedCosmetics": {
-        "equippedTheme": "default_dark",
+        "equippedBackground": "bg_default",
+        "equippedButton": null,
         "equippedFrame": null,
         "equippedTitles": []
     },
@@ -55,6 +56,11 @@
     "rarity": "5",
     "name": "Theme Cyberpunk",
     "imageUrl": "https://cloudfront.net/items/theme_cyberpunk.jpg",
+    "assets": {
+        "css": "https://cloudfront.net/themes/cyberpunk/style.css",
+        "bgm": "https://cloudfront.net/themes/cyberpunk/music.mp3",
+        "particles": "https://cloudfront.net/themes/cyberpunk/effects.json"
+    },
     "itemType": "theme",
     "collectFrom": "eCoinShop",
     "acquiredAt": "2026-06-03T11:15:00.000Z"
@@ -264,6 +270,26 @@
             "isCompleted": false,
             "isClaimed": false
         },
+        "focus_daily1": {
+            "type": "FOCUS",
+            "name": "Học mỗi ngày",
+            "description": "Hoàn thành 30 phút học tập (test)",
+            "target": 30,
+            "progress": 15,
+            "knowledgePoint": 150,
+            "isCompleted": false,
+            "isClaimed": false
+        },
+        "focus_daily2": {
+            "type": "FOCUS",
+            "name": "Học mỗi ngày",
+            "description": "Hoàn thành 30 phút học tập (test)",
+            "target": 30,
+            "progress": 15,
+            "knowledgePoint": 150,
+            "isCompleted": false,
+            "isClaimed": false
+        },
         "play_minesweeper_1": {
             "type": "PLAY_MINESWEEPER",
             "name": "Gỡ mìn mỗi ngày",
@@ -314,8 +340,11 @@
 ```json
 {
     "PK": "usr_12345",
-    "SK": 1717725600,
+    "SK": "session#1280444800",
     "mode": "rank",
+    "startTime": "2026-06-03T11:15:00.000Z",
+    "endTime": "2026-06-03T11:15:00.000Z",
+    "rankPoints": null,
     "durationMinutes": 60,
     "strikeCount": 1,
     "status": "COMPLETED",

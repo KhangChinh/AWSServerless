@@ -52,9 +52,9 @@
 -khi mở trang thông tin người dùng:
     +Ưu tiên load profile từ Redux. Nếu chưa có mới gọi API sync profile
     +có nút để bật chỉnh sửa tên người dùng, khi chỉnh sửa tên sẽ lưu vào 1 biến tạm ở client
-    +khi ấn vào chỉnh sửa frame sẽ mở ra danh sách có itemType = frame trong inventory ở redux để hiển thị cho người dùng chọn, khi lưu SK mới  tương tự với chỉnh sửa theme.
+    +khi ấn vào chỉnh sửa frame sẽ mở ra danh sách có itemType = frame trong inventory ở redux để hiển thị cho người dùng chọn, khi lưu SK mới  tương tự với chỉnh sửa background.
     +phần chỉnh sửa title sẽ mở ra danh sách có thể chọn, người dùng có thể chọn tối đa 3 title để hiển thị
-    +khi ấn nút xác nhận (nếu có chỉnh sửa mới cho bật) sẽ gửi tên mới nếu có, vật phẩm trang mở mới lên cho server, trên server sẽ tiến hành kiểm tra, bất cứ vật phẩm sử dụng nào (frame, theme, title), trên server đều phải lấy userId và SK của inventory đó để tìm lại trong db đảm bảo người dùng đã sở hữu vật phẩm đó, sau đó mới lưu trang thái mới vào profile
+    +khi ấn nút xác nhận (nếu có chỉnh sửa mới cho bật) sẽ gửi tên mới nếu có, vật phẩm trang mở mới lên cho server, trên server sẽ tiến hành kiểm tra, bất cứ vật phẩm sử dụng nào (frame, background, title), trên server đều phải lấy userId và SK của inventory đó để tìm lại trong db đảm bảo người dùng đã sở hữu vật phẩm đó, sau đó mới lưu trang thái mới vào profile
     +phần sửa avatar sẽ đc tách riêng, nếu khoảng thời gian từ avatarUpdatedAt đến hiện tại chưa đến, client sẽ vô hiệu hóa nút tải ảnh, đồng thời hiển thị bộ đếm ngược cho biết chính xác bao lâu nữa mới được đổi tiếp, khi gửi api server sẽ kiểm tra xem cooldown của avatarUpdatedAt đã đúng hạn chưa nếu đúng thì tiến hành xử lí ảnh và trả về profile mới nhất để sync với client
     
 -khi người dùng mở túi đồ:
@@ -64,7 +64,7 @@
      +Phân trang UI: Việc chia trang và hiển thị (các ô vuông vật phẩm kèm background theo rarity) được xử lý hoàn toàn dựa trên mảng dữ liệu đã lưu trong Redux. Khi người dùng lật trang gần hết số lượng data đang có, client tự động dùng LastEvaluatedKey để fetch ngầm 60 vật phẩm tiếp theo, mang lại trải nghiệm cuộn mượt mà không bị khựng.
      +khi ấn vào 1 sản phẩm thì sẽ hiện chi tiết thông tin vật phẩm đó ra
 
--khi gacha: (rarity = 3: sanity, rarity = 4, 5: frame, theme,...)
+-khi gacha: (rarity = 3: sanity, rarity = 4, 5: frame, background,...)
     +người dùng khi ấn gacha sẽ gọi api cho server cho server biết ấn x1 hay x10, server lấy budget trong profile của userId đó và tiến hành kiểm tra tài nguyên roll, ưu tiên trừ knowledgeCore trước, nếu không đủ thì tính toán lượng knowledgePoint cần thiết cho knowledgeCore còn thiếu, nếu mọi thứ đều thỏa thì lưu lại lượng cần trừ. lấy gachaStats trong profile đưa vào để bắt đầu chạy thuật toán gacha.
         ```Thuật toán Gacha (chạy trong 1 Transaction):```
         ```Khởi tạo & Tạo Rarity Map: * Kiểm tra is4StarGuaranteed và is5StarGuaranteed mới nhất từ profile để làm cơ sở chạy thuật toán (chưa tính đến pity 4 và 5).```

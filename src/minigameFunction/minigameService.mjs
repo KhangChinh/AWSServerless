@@ -6,9 +6,12 @@ import {
     TransactWriteCommand,
     BatchGetCommand,
 } from "@aws-sdk/lib-dynamodb";
+import crypto from "crypto";
 import { docClient } from "../database.mjs";
 import { successResponse, errorResponse } from "../response.mjs";
 import { updateQuestProgress } from "../questFunction/questService.mjs";
+
+const JWT_SECRET = process.env.GAME_SECRET_KEY || "fallback_secret"; // Dùng env trong thực tế
 
 const getUserId = (event) => {
     const auth = event.requestContext?.authorizer;
@@ -164,66 +167,39 @@ const handleStartGame = async (event) => {
             }
         }
 
-        // Tạo seed ngẫu nhiên
-        const seed = Math.random().toString(36).substring(2) + Date.now().toString(36);
+        // Tạo seed ngẫu nhiên cho PRNG
+        const seed = Math.floor(Math.random() * 1000000);
+        const startTime = Date.now();
+        const sanityCostFinal = sanityCost || 0;
 
-        // Tạo solutionGrid (tuỳ game type)
-        let solutionGrid = null;
-        if (gameId === "sudoku") {
-            solutionGrid = baseMapConfig?.solutionGrid || null;
-        } else if (gameId === "minesweeper") {
-            // Minesweeper: solutionGrid là vị trí mìn (client sẽ generate từ seed)
-            solutionGrid = `seed:${seed}`;
-        }
+        const newSanity = (profile.budget?.sanity || 0) - sanityCostFinal;
 
-        const now = Date.now();
-        const nowSec = Math.floor(now / 1000);
-        const expiresAt = nowSec + 6 * 30 * 24 * 60 * 60; // 6 tháng
-
-        const sessionItem = {
-            PK: userId,
-            SK: `session#${gameId}`,
-            levelId,
-            startTime: now,
-            sanityCost,
-            status: "PENDING",
-            seed,
-            solutionGrid,
-            expiresAt,
-        };
-
-        const newSanity = (profile.budget?.sanity || 0) - sanityCost;
-
-        // Transaction: tạo session + trừ sanity
+        // Trừ sanity
         await docClient.send(
-            new TransactWriteCommand({
-                TransactItems: [
-                    {
-                        Put: {
-                            TableName: process.env.MINIGAME_TABLE,
-                            Item: sessionItem,
-                        },
-                    },
-                    {
-                        Update: {
-                            TableName: process.env.USER_TABLE,
-                            Key: { PK: userId },
-                            UpdateExpression:
-                                "SET budget.sanity = :sanity, updatedAt = :now",
-                            ExpressionAttributeValues: {
-                                ":sanity": newSanity,
-                                ":now": now,
-                                ":requiredSanity": sanityCost,
-                            },
-                            ConditionExpression: "budget.sanity >= :requiredSanity",
-                        },
-                    },
-                ],
+            new UpdateCommand({
+                TableName: process.env.USER_TABLE,
+                Key: { PK: userId },
+                UpdateExpression:
+                    "SET budget.sanity = :sanity, updatedAt = :now",
+                ExpressionAttributeValues: {
+                    ":sanity": newSanity,
+                    ":now": startTime,
+                    ":requiredSanity": sanityCostFinal,
+                },
+                ConditionExpression: "budget.sanity >= :requiredSanity",
             })
         );
 
+        // Tạo Payload
+        const payload = JSON.stringify({ userId, gameId, levelId, seed, startTime, sanityCost: sanityCostFinal });
+        
+        // Ký HMAC để chống sửa đổi thông tin ở Client
+        const hmac = crypto.createHmac("sha256", JWT_SECRET).update(payload).digest("hex");
+        const gameToken = Buffer.from(payload).toString("base64") + "." + hmac;
+
         // Trả về cho client (KHÔNG gửi solutionGrid)
         return successResponse({
+            gameToken,
             seed,
             baseMapConfig: {
                 ...baseMapConfig,
@@ -235,11 +211,11 @@ const handleStartGame = async (event) => {
                 knowledgePoint: profile.budget?.knowledgePoint,
                 eCoin: profile.budget?.eCoin,
             },
-            updatedAt: now,
+            updatedAt: startTime,
         });
     } catch (err) {
-        if (err.name === "TransactionCanceledException") {
-            return errorResponse(402, "Không đủ sanity hoặc lỗi giao dịch");
+        if (err.name === "ConditionalCheckFailedException") {
+            return errorResponse(402, "Không đủ sanity");
         }
         console.error("Lỗi startGame:", err);
         return errorResponse(500, "Lỗi máy chủ nội bộ");
@@ -249,30 +225,35 @@ const handleStartGame = async (event) => {
 // ═══════════════════════════════════════════════════════
 // POST /minigame/end
 // Body: { gameId: string, finalGrid?: string, actionLog?: Array }
-// ═══════════════════════════════════════════════════════
 const handleEndGame = async (event) => {
-    const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
+    const eventUserId = getUserId(event);
+    if (!eventUserId) return errorResponse(401, "Unauthorized");
 
     try {
         const body = JSON.parse(event.body || "{}");
-        const { gameId, finalGrid, actionLog = [] } = body;
+        const { gameId, gameToken, finalGrid, actionLog = [] } = body;
 
-        if (!gameId) return errorResponse(400, "gameId là bắt buộc");
+        if (!gameId || !gameToken) return errorResponse(400, "gameId và gameToken là bắt buộc");
 
-        // Lấy session đang PENDING
-        const sessionResult = await docClient.send(
-            new GetCommand({
-                TableName: process.env.MINIGAME_TABLE,
-                Key: { PK: userId, SK: `session#${gameId}` },
-            })
-        );
-        const session = sessionResult.Item;
-        if (!session || session.status !== "PENDING") {
-            return errorResponse(404, "Không tìm thấy session đang chơi");
+        // ── 1. Xác thực HMAC Token ──
+        const parts = gameToken.split(".");
+        if (parts.length !== 2) return errorResponse(400, "gameToken không hợp lệ");
+        
+        const [base64Payload, signature] = parts;
+        const payloadStr = Buffer.from(base64Payload, "base64").toString("utf-8");
+        
+        const expectedHmac = crypto.createHmac("sha256", JWT_SECRET).update(payloadStr).digest("hex");
+        if (signature !== expectedHmac) {
+            console.error("Token tampered! Fraud detected for user:", eventUserId);
+            return errorResponse(403, "Phát hiện gian lận: Dữ liệu đã bị chỉnh sửa!");
         }
 
-        const { levelId, startTime, sanityCost, solutionGrid } = session;
+        const { userId, levelId, seed, startTime, sanityCost } = JSON.parse(payloadStr);
+
+        if (userId !== eventUserId) {
+            return errorResponse(403, "Token không thuộc về user này");
+        }
+
         const now = Date.now();
         const elapsedSeconds = Math.floor((now - startTime) / 1000);
 
@@ -286,34 +267,25 @@ const handleEndGame = async (event) => {
         const level = levelResult.Item;
         if (!level) return errorResponse(404, "Không tìm thấy dữ liệu màn chơi");
 
-        // ── Anti-cheat checks ──
-        const MIN_SECONDS = 5; // ít nhất 5 giây
+        // ── 2. Anti-cheat checks ──
+        const MIN_SECONDS = 5; 
         let isWin = false;
 
-        // 1. Kiểm tra thời gian bất thường
         if (elapsedSeconds < MIN_SECONDS) {
             isWin = false; // quá nhanh → gian lận
         } else {
-            // 2. Kiểm tra action log timestamps
-            let logValid = true;
-            const MIN_ACTION_GAP_MS = 200; // tối thiểu 200ms giữa 2 thao tác
-            for (let i = 1; i < actionLog.length; i++) {
-                if (actionLog[i].ts - actionLog[i - 1].ts < MIN_ACTION_GAP_MS) {
-                    logValid = false;
-                    break;
-                }
-            }
-
-            // 3. So sánh solution
-            if (logValid && finalGrid && solutionGrid) {
-                if (gameId === "sudoku") {
-                    isWin = finalGrid === solutionGrid;
-                } else if (gameId === "minesweeper") {
-                    // Minesweeper: client gửi trạng thái thắng, server verify
-                    isWin = finalGrid === "WIN";
+            // Anti-cheat 2: Tái sinh map bằng seed trên RAM
+            if (gameId === "minesweeper") {
+                // Tương lai: Generate map từ `seed` bằng PRNG và so khớp mảng `finalGrid` (tọa độ user click).
+                // Hiện tại: Tạm thời cho isWin nếu client truyền list, chờ hoàn thiện Generator.
+                if (Array.isArray(finalGrid) && finalGrid.length > 0) {
+                    isWin = true;
                 } else {
-                    isWin = finalGrid === solutionGrid;
+                    isWin = false;
                 }
+            } else if (gameId === "sudoku") {
+                const solutionGrid = level.baseMapConfig?.solutionGrid;
+                isWin = (finalGrid === solutionGrid);
             }
         }
 
@@ -445,36 +417,18 @@ const handleEndGame = async (event) => {
             }
         }
 
-        // ── Cập nhật session thành COMPLETED + profile budget ──
+        // Cập nhật profile budget
         await docClient.send(
-            new TransactWriteCommand({
-                TransactItems: [
-                    {
-                        Update: {
-                            TableName: process.env.MINIGAME_TABLE,
-                            Key: { PK: userId, SK: `session#${gameId}` },
-                            UpdateExpression: "SET #st = :status, endTime = :now",
-                            ExpressionAttributeNames: { "#st": "status" },
-                            ExpressionAttributeValues: {
-                                ":status": "COMPLETED",
-                                ":now": newNow,
-                            },
-                        },
-                    },
-                    {
-                        Update: {
-                            TableName: process.env.USER_TABLE,
-                            Key: { PK: userId },
-                            UpdateExpression:
-                                "SET budget.eCoin = :ecoin, budget.sanity = :sanity, updatedAt = :now",
-                            ExpressionAttributeValues: {
-                                ":ecoin": newECoin,
-                                ":sanity": newSanity,
-                                ":now": newNow,
-                            },
-                        },
-                    },
-                ],
+            new UpdateCommand({
+                TableName: process.env.USER_TABLE,
+                Key: { PK: userId },
+                UpdateExpression:
+                    "SET budget.eCoin = :ecoin, budget.sanity = :sanity, updatedAt = :now",
+                ExpressionAttributeValues: {
+                    ":ecoin": newECoin,
+                    ":sanity": newSanity,
+                    ":now": newNow,
+                },
             })
         );
 
@@ -570,17 +524,23 @@ const handleGetFriendsLeaderboard = async (event) => {
             return successResponse({ leaderboard: [], gameId });
         }
 
-        // BatchGetItem stats của tất cả
+        // BatchGetItem stats của tất cả, hỗ trợ > 100 bằng chunking
         const statsKeys = allIds.map((id) => ({ PK: id, SK: `stats#${gameId}` }));
-        const batchResult = await docClient.send(
-            new BatchGetCommand({
-                RequestItems: {
-                    [process.env.MINIGAME_TABLE]: { Keys: statsKeys },
-                },
-            })
-        );
+        let statsItems = [];
 
-        const statsItems = batchResult.Responses?.[process.env.MINIGAME_TABLE] || [];
+        const BATCH_SIZE = 100;
+        for (let i = 0; i < statsKeys.length; i += BATCH_SIZE) {
+            const batchKeys = statsKeys.slice(i, i + BATCH_SIZE);
+            const batchResult = await docClient.send(
+                new BatchGetCommand({
+                    RequestItems: {
+                        [process.env.MINIGAME_TABLE]: { Keys: batchKeys },
+                    },
+                })
+            );
+            const items = batchResult.Responses?.[process.env.MINIGAME_TABLE] || [];
+            statsItems.push(...items);
+        }
 
         // Sort theo totalScore giảm dần, lấy top 10
         const sorted = statsItems
