@@ -288,18 +288,19 @@ const handleGacha = async (event) => {
         });
 
         // DynamoDB TransactWrite hỗ trợ tối đa 100 items
-        // Thực thi theo batch nếu cần
+        // Số lượng tối đa ở đây là ~21 items (10 inventory + 10 history + 1 profile)
+        // Nên có thể tóm vào 1 transaction duy nhất để đảm bảo ACID (không được phép chia batch)
         const allWrites = [...inventoryWrites, ...historyWrites, ...transactItems];
 
-        // Chia thành batch 25 (transact limit)
-        const BATCH_SIZE = 25;
-        for (let i = 0; i < allWrites.length; i += BATCH_SIZE) {
-            await docClient.send(
-                new TransactWriteCommand({
-                    TransactItems: allWrites.slice(i, i + BATCH_SIZE),
-                })
-            );
+        if (allWrites.length > 100) {
+            throw new Error("TransactItems vượt quá 100, không thể thực hiện giao dịch ACID.");
         }
+
+        await docClient.send(
+            new TransactWriteCommand({
+                TransactItems: allWrites,
+            })
+        );
 
         // Kết quả trả về cho client
         const resultItems = rolledItems.map(({ rarityValue, item, sanityAmount }) => {
