@@ -28,6 +28,7 @@ const aws = new AwsClient({
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     sessionToken: process.env.AWS_SESSION_TOKEN,
     region: process.env.AWS_REGION || "ap-southeast-1", // Mặc định theo region của bạn
+    service: "es"
 });
 
 /**
@@ -57,7 +58,10 @@ async function osSearch(query) {
 // Trả về thông tin công khai: userId, name, avatarUrl, streak, titles.
 // ═══════════════════════════════════════════════════════
 const handleSearchUser = async (event) => {
+    console.log("Start Search!!!!!!!!!!!!!!!!!!!!!!")
     const userId = getUserId(event);
+    console.log("EW EVENT", event)
+    console.log("Extracted userId:", userId);
     if (!userId) return errorResponse(401, "Unauthorized");
 
     try {
@@ -130,9 +134,7 @@ const handleStreamIndexer = async (event) => {
         if (!newImage) continue;
 
         // Chỉ index bản ghi SK = "profile"
-        const sk = newImage.SK?.S;
-        if (sk !== "profile") continue;
-
+        if (!newImage.information || !newImage.information.M) continue;
         const userId = newImage.PK?.S;
         const info = newImage.information?.M || {};
         const studyStats = newImage.studyStats?.M || {};

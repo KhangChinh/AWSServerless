@@ -3,7 +3,7 @@ useDotenv: true
 provider:
   name: aws
   runtime: nodejs20.x
-  region: ap-southeast-1
+  region: ${env:AWS_REGION}
   memorySize: 512
   environment:
     OPENSEARCH_ENDPOINT: ${env:OPENSEARCH_ENDPOINT}
