@@ -9,6 +9,7 @@
  * Document: { userId, name, email, avatarUrl, streak, equippedTitles }
  */
 
+import { AwsClient } from "aws4fetch"; // <-- [THÊM MỚI] Import thư viện
 import { successResponse, errorResponse } from "../response.mjs";
 
 const getUserId = (event) => {
@@ -16,22 +17,33 @@ const getUserId = (event) => {
     return auth?.jwt?.claims?.sub || auth?.claims?.sub || null;
 };
 
-// Gọi OpenSearch qua AWS SDK v3 (dùng fetch native của Node 20)
 // OPENSEARCH_ENDPOINT không gồm /_dashboards — chỉ là domain HTTPS
 const OS_ENDPOINT = process.env.OPENSEARCH_ENDPOINT;
 const OS_INDEX = "users";
 
+// <-- [THÊM MỚI] Khởi tạo aws4fetch client
+// Tự động lấy credentials từ biến môi trường của AWS Lambda
+const aws = new AwsClient({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    sessionToken: process.env.AWS_SESSION_TOKEN,
+    region: process.env.AWS_REGION || "ap-southeast-1", // Mặc định theo region của bạn
+});
+
 /**
- * Gọi OpenSearch REST API bằng fetch (Node 20 native).
+ * Gọi OpenSearch REST API bằng aws.fetch để tự động ký AWS SigV4.
  * Lambda dùng IAM execution role có es:ESHttpGet/Post permission.
  */
 async function osSearch(query) {
     const url = `${OS_ENDPOINT}/${OS_INDEX}/_search`;
-    const res = await fetch(url, {
+
+    // <-- [SỬA LẠI] Thay fetch native bằng aws.fetch
+    const res = await aws.fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(query),
     });
+
     if (!res.ok) {
         const text = await res.text();
         throw new Error(`OpenSearch error ${res.status}: ${text}`);
@@ -112,7 +124,7 @@ const handleStreamIndexer = async (event) => {
 
     for (const record of event.Records) {
         // Chỉ xử lý bản ghi profile (SK = "profile")
-        if (record.eventName === "REMOVE") continue;
+        if (record.eventName === "REMOVE") continue; // Nếu cần xóa document trên OS khi bị xóa ở DB, bạn có thể xử lý thêm ở đây
 
         const newImage = record.dynamodb?.NewImage;
         if (!newImage) continue;
@@ -139,8 +151,10 @@ const handleStreamIndexer = async (event) => {
 
         // Upsert vào OpenSearch
         const url = `${OS_ENDPOINT}/${OS_INDEX}/_doc/${userId}`;
+
+        // <-- [SỬA LẠI] Thay fetch native bằng aws.fetch
         ops.push(
-            fetch(url, {
+            aws.fetch(url, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(doc),
@@ -153,6 +167,9 @@ const handleStreamIndexer = async (event) => {
         results.forEach((r, i) => {
             if (r.status === "rejected") {
                 console.error(`Stream index error record ${i}:`, r.reason);
+            } else if (!r.value.ok) {
+                // <-- [THÊM MỚI] Ghi log nếu OpenSearch trả về lỗi nhưng request HTTP vẫn thành công
+                console.error(`Stream index failed for record ${i} with status ${r.value.status}: ${r.value.statusText}`);
             }
         });
     }
