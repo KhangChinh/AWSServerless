@@ -127,13 +127,10 @@ const handleStreamIndexer = async (event) => {
     const ops = [];
 
     for (const record of event.Records) {
-        // Chỉ xử lý bản ghi profile (SK = "profile")
         if (record.eventName === "REMOVE") continue; // Nếu cần xóa document trên OS khi bị xóa ở DB, bạn có thể xử lý thêm ở đây
 
         const newImage = record.dynamodb?.NewImage;
         if (!newImage) continue;
-
-        // Chỉ index bản ghi SK = "profile"
         if (!newImage.information || !newImage.information.M) continue;
         const userId = newImage.PK?.S;
         const info = newImage.information?.M || {};
