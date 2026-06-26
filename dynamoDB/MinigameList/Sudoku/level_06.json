@@ -1,0 +1,13 @@
+{
+    "PK": "sudoku",
+    "SK": "level_06",
+    "name": "Sudoku Level 6",
+    "sanityCost": 100,
+    "requiredLevel": "level_05",
+    "maxScoreCap": 1000,
+    "eCoin": 10,
+    "baseMapConfig": {
+        "gridSize": "9x9",
+        "emptyCellsCount": 43
+    }
+}

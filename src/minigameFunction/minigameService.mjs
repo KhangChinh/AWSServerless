@@ -47,18 +47,13 @@ const handleGetLevels = async (event) => {
             exclusiveStartKey = JSON.parse(decodeURIComponent(lastKeyStr));
         }
 
-        // Lấy danh sách màn (MINIGAME_TABLE, PK=gameId)
-        // FilterExpression loại trừ các bản ghi không phải level (session, stats, globalLeaderboard)
+        // 1. Chỉ đơn giản là query lấy toàn bộ màn chơi theo gameId
         const levelParams = {
             TableName: process.env.MINIGAME_TABLE,
             KeyConditionExpression: "PK = :gid",
-            FilterExpression: "attribute_exists(sanityCost)",
             ExpressionAttributeValues: {
                 ":gid": gameId,
             },
-            ProjectionExpression:
-                "PK, SK, #n, sanityCost, requiredLevel, maxScoreCap, eCoin",
-            ExpressionAttributeNames: { "#n": "name" },
             Limit: 20,
         };
         if (exclusiveStartKey) levelParams.ExclusiveStartKey = exclusiveStartKey;
@@ -66,42 +61,48 @@ const handleGetLevels = async (event) => {
         const levelsResult = await docClient.send(new QueryCommand(levelParams));
         const levels = levelsResult.Items || [];
 
-        // BatchGetItem để lấy score của user
+        if (levels.length === 0) {
+            return successResponse({ levels: [], lastEvaluatedKey: null });
+        }
+
+        // 2. Tạo danh sách Key để quét điểm của user
         const scoreKeys = levels.map((lvl) => ({
             PK: userId,
             SK: `score#${gameId}#${lvl.SK}`,
         }));
 
-        let scoreMap = {};
-        if (scoreKeys.length > 0) {
-            const batchResult = await docClient.send(
-                new BatchGetCommand({
-                    RequestItems: {
-                        [process.env.MINIGAME_TABLE]: {
-                            Keys: scoreKeys,
-                        },
+        const batchResult = await docClient.send(
+            new BatchGetCommand({
+                RequestItems: {
+                    [process.env.MINIGAME_TABLE]: {
+                        Keys: scoreKeys,
                     },
-                })
-            );
-            for (const item of batchResult.Responses?.[process.env.MINIGAME_TABLE] || []) {
-                const levelId = item.SK.replace(`score#${gameId}#`, "");
-                scoreMap[levelId] = {
-                    personalBest: item.personalBest,
-                    achievedAt: item.achievedAt,
-                };
-            }
+                },
+            })
+        );
+
+        // 3. Gom dữ liệu điểm của user lại
+        let scoreMap = {};
+        const userScores = batchResult.Responses?.[process.env.MINIGAME_TABLE] || [];
+        for (const item of userScores) {
+            const levelId = item.SK.replace(`score#${gameId}#`, "");
+            scoreMap[levelId] = {
+                personalBest: item.personalBest,
+                achievedAt: item.achievedAt,
+            };
         }
 
-        // Merge
-        const enrichedLevels = levels.map((lvl) => ({
-            ...lvl,
+        // 4. Gộp vào danh sách level (Có chơi thì nhét điểm vào, chưa thì null)
+        const finalLevels = levels.map((lvl) => ({
+            ...lvl, // Giữ nguyên toàn bộ data gốc của level
             score: scoreMap[lvl.SK] || null,
         }));
 
         return successResponse({
-            levels: enrichedLevels,
+            levels: finalLevels,
             lastEvaluatedKey: levelsResult.LastEvaluatedKey || null,
         });
+
     } catch (err) {
         console.error("Lỗi getLevels:", err);
         return errorResponse(500, "Lỗi máy chủ nội bộ");
@@ -192,7 +193,7 @@ const handleStartGame = async (event) => {
 
         // Tạo Payload
         const payload = JSON.stringify({ userId, gameId, levelId, seed, startTime, sanityCost: sanityCostFinal });
-        
+
         // Ký HMAC để chống sửa đổi thông tin ở Client
         const hmac = crypto.createHmac("sha256", JWT_SECRET).update(payload).digest("hex");
         const gameToken = Buffer.from(payload).toString("base64") + "." + hmac;
@@ -238,10 +239,10 @@ const handleEndGame = async (event) => {
         // ── 1. Xác thực HMAC Token ──
         const parts = gameToken.split(".");
         if (parts.length !== 2) return errorResponse(400, "gameToken không hợp lệ");
-        
+
         const [base64Payload, signature] = parts;
         const payloadStr = Buffer.from(base64Payload, "base64").toString("utf-8");
-        
+
         const expectedHmac = crypto.createHmac("sha256", JWT_SECRET).update(payloadStr).digest("hex");
         if (signature !== expectedHmac) {
             console.error("Token tampered! Fraud detected for user:", eventUserId);
@@ -268,7 +269,7 @@ const handleEndGame = async (event) => {
         if (!level) return errorResponse(404, "Không tìm thấy dữ liệu màn chơi");
 
         // ── 2. Anti-cheat checks ──
-        const MIN_SECONDS = 5; 
+        const MIN_SECONDS = 5;
         let isWin = false;
 
         if (elapsedSeconds < MIN_SECONDS) {
