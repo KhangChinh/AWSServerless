@@ -142,23 +142,18 @@ const handleStreamIndexer = async (event) => {
         }
         const info = newImage.information?.M || {};
         const studyStats = newImage.studyStats?.M || {};
-        const equippedCosmetics = newImage.equippedCosmetics?.M || {};
 
         const doc = {
-            userId,
+            userId: userId,
             name: info.name?.S || "",
             email: info.email?.S || "",
             avatarUrl: info.avatarUrl?.S || "",
+            rankScore: Number(studyStats.rankScore?.N || 0),
             streak: Number(studyStats.streak?.N || 0),
-            equippedTitles: (equippedCosmetics.equippedTitles?.L || []).map(
-                (t) => t.S
-            ),
+            lastFocusDate: Number(studyStats.lastFocusDate?.N || 0)
         };
         console.log("Chuẩn bị đẩy doc này lên OpenSearch:", doc);
-        // Upsert vào OpenSearch
         const url = `${OS_ENDPOINT}/${OS_INDEX}/_doc/${userId}`;
-
-        // <-- [SỬA LẠI] Thay fetch native bằng aws.fetch
         ops.push(
             aws.fetch(url, {
                 method: "PUT",
