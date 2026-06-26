@@ -7,6 +7,7 @@ provider:
   memorySize: 512
   environment:
     OPENSEARCH_ENDPOINT: ${env:OPENSEARCH_ENDPOINT}
+    OS_User_INDEX: ${env:OS_User_INDEX}
     ASSETS_BUCKET: ${env:ASSETS_BUCKET}
     DEFAULT_AVATAR_URL: ${env:DEFAULT_AVATAR_URL}
     USER_TABLE: ${env:USER_TABLE}

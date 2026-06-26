@@ -17,9 +17,8 @@ const getUserId = (event) => {
     return auth?.jwt?.claims?.sub || auth?.claims?.sub || null;
 };
 
-// OPENSEARCH_ENDPOINT không gồm /_dashboards — chỉ là domain HTTPS
-const OS_ENDPOINT = process.env.OPENSEARCH_ENDPOINT;
-const OS_INDEX = "users";
+const OPENSEARCH_ENDPOINT = process.env.OPENSEARCH_ENDPOINT;
+const OS_User_INDEX = process.env.OS_User_INDEX;
 
 // <-- [THÊM MỚI] Khởi tạo aws4fetch client
 // Tự động lấy credentials từ biến môi trường của AWS Lambda
@@ -36,9 +35,7 @@ const aws = new AwsClient({
  * Lambda dùng IAM execution role có es:ESHttpGet/Post permission.
  */
 async function osSearch(query) {
-    const url = `${OS_ENDPOINT}/${OS_INDEX}/_search`;
-
-    // <-- [SỬA LẠI] Thay fetch native bằng aws.fetch
+    const url = `${OPENSEARCH_ENDPOINT}/${OS_User_INDEX}/_search`;
     const res = await aws.fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -74,17 +71,25 @@ const handleSearchUser = async (event) => {
         // Multi-match: tìm theo name và email, fuzzy để chịu lỗi chính tả nhỏ
         const osQuery = {
             size: 10,
-            _source: ["userId", "name", "avatarUrl", "streak", "equippedTitles"],
+            _source: [
+                "userId",
+                "name",
+                "email",
+                "avatarUrl",
+                "rankScore",
+                "streak",
+                "lastFocusDate"
+            ],
             query: {
                 bool: {
-                    must_not: [{ term: { userId } }], // loại bỏ bản thân
+                    must_not: [{ term: { userId } }],
                     should: [
                         {
                             match: {
                                 name: {
                                     query: keyword,
                                     fuzziness: "AUTO",
-                                    boost: 2, // ưu tiên khớp tên
+                                    boost: 2,
                                 },
                             },
                         },
@@ -105,10 +110,12 @@ const handleSearchUser = async (event) => {
         const result = await osSearch(osQuery);
         const users = (result.hits?.hits || []).map((hit) => ({
             userId: hit._source.userId,
-            name: hit._source.name,
-            avatarUrl: hit._source.avatarUrl,
+            name: hit._source.name || "",
+            email: hit._source.email || "",
+            avatarUrl: hit._source.avatarUrl || "",
+            rankScore: hit._source.rankScore || 0,
             streak: hit._source.streak || 0,
-            titles: hit._source.equippedTitles || [],
+            lastFocusDate: hit._source.lastFocusDate || 0
         }));
 
         return successResponse({ users });
@@ -153,7 +160,7 @@ const handleStreamIndexer = async (event) => {
             lastFocusDate: Number(studyStats.lastFocusDate?.N || 0)
         };
         console.log("Chuẩn bị đẩy doc này lên OpenSearch:", doc);
-        const url = `${OS_ENDPOINT}/${OS_INDEX}/_doc/${userId}`;
+        const url = `${OPENSEARCH_ENDPOINT}/${OS_User_INDEX}/_doc/${userId}`;
         ops.push(
             aws.fetch(url, {
                 method: "PUT",
@@ -165,13 +172,22 @@ const handleStreamIndexer = async (event) => {
 
     if (ops.length > 0) {
         const results = await Promise.allSettled(ops);
-        results.forEach((r, i) => {
+        for (let i = 0; i < results.length; i++) {
+            const r = results[i];
+
             if (r.status === "rejected") {
-                console.error(`Stream index error record ${i}:`, r.reason);
-            } else if (!r.value.ok) {
-                console.error(`Stream index failed for record ${i} with status ${r.value.status}: ${r.value.statusText}`);
+                console.error(`Lỗi ở record ${i}:`, r.reason);
+            } else {
+                // Đọc nội dung OpenSearch trả về
+                const responseBody = await r.value.text();
+
+                if (!r.value.ok) {
+                    console.error(`Thất bại ở record ${i}. HTTP ${r.value.status}:`, responseBody);
+                } else {
+                    console.log(`Đẩy lên OpenSearch THÀNH CÔNG record ${i}! Phản hồi:`, responseBody);
+                }
             }
-        });
+        }
     }
 
     return { processed: ops.length };
