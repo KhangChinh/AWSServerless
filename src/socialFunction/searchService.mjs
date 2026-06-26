@@ -125,14 +125,21 @@ const handleSearchUser = async (event) => {
 // ═══════════════════════════════════════════════════════
 const handleStreamIndexer = async (event) => {
     const ops = [];
+    console.log("DynamoDB Event Records:", JSON.stringify(event.Records, null, 2));
 
     for (const record of event.Records) {
         if (record.eventName === "REMOVE") continue; // Nếu cần xóa document trên OS khi bị xóa ở DB, bạn có thể xử lý thêm ở đây
 
         const newImage = record.dynamodb?.NewImage;
-        if (!newImage) continue;
-        if (!newImage.information || !newImage.information.M) continue;
+        if (!newImage) {
+            console.log("Bỏ qua vì không có newImage");
+            continue;
+        }
         const userId = newImage.PK?.S;
+        if (!userId) {
+            console.log("Bỏ qua vì không tìm thấy PK (userId)");
+            continue;
+        }
         const info = newImage.information?.M || {};
         const studyStats = newImage.studyStats?.M || {};
         const equippedCosmetics = newImage.equippedCosmetics?.M || {};
@@ -147,7 +154,7 @@ const handleStreamIndexer = async (event) => {
                 (t) => t.S
             ),
         };
-
+        console.log("Chuẩn bị đẩy doc này lên OpenSearch:", doc);
         // Upsert vào OpenSearch
         const url = `${OS_ENDPOINT}/${OS_INDEX}/_doc/${userId}`;
 
@@ -167,7 +174,6 @@ const handleStreamIndexer = async (event) => {
             if (r.status === "rejected") {
                 console.error(`Stream index error record ${i}:`, r.reason);
             } else if (!r.value.ok) {
-                // <-- [THÊM MỚI] Ghi log nếu OpenSearch trả về lỗi nhưng request HTTP vẫn thành công
                 console.error(`Stream index failed for record ${i} with status ${r.value.status}: ${r.value.statusText}`);
             }
         });
