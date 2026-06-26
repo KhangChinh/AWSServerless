@@ -78,6 +78,20 @@ const handleSendFriendRequest = async (event) => {
             return errorResponse(409, "Đã là bạn bè hoặc đã gửi lời mời trước đó");
         }
 
+        // Chống spam: Giới hạn 50 lời mời đang chờ
+        const countParams = {
+            TableName: process.env.SOCIAL_TABLE,
+            KeyConditionExpression: "PK = :uid",
+            FilterExpression: "#s = :status",
+            ExpressionAttributeNames: { "#s": "status" },
+            ExpressionAttributeValues: { ":uid": userId, ":status": "PENDING_OUT" },
+            Select: "COUNT"
+        };
+        const countResult = await docClient.send(new QueryCommand(countParams));
+        if (countResult.Count >= 50) {
+            return errorResponse(429, "Bạn có quá nhiều lời mời chưa được phản hồi (tối đa 50).");
+        }
+
         // Lấy thông tin A và B để lưu vào bản ghi social
         const [profileA, profileB] = await Promise.all([
             docClient.send(
@@ -98,6 +112,8 @@ const handleSendFriendRequest = async (event) => {
 
         const now = Date.now();
 
+        const ttl = Math.floor(now / 1000) + (30 * 24 * 60 * 60); // 30 days expiration
+
         await docClient.send(
             new TransactWriteCommand({
                 TransactItems: [
@@ -113,6 +129,7 @@ const handleSendFriendRequest = async (event) => {
                                 status: "PENDING_OUT",
                                 createdAt: now,
                                 updatedAt: now,
+                                expiresAt: ttl,
                             },
                             ConditionExpression: "attribute_not_exists(PK)",
                         },
@@ -129,6 +146,7 @@ const handleSendFriendRequest = async (event) => {
                                 status: "PENDING_IN",
                                 createdAt: now,
                                 updatedAt: now,
+                                expiresAt: ttl,
                             },
                             ConditionExpression: "attribute_not_exists(PK)",
                         },
