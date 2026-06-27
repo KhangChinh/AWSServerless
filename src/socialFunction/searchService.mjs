@@ -63,8 +63,8 @@ const handleSearchUser = async (event) => {
 
     try {
         const q = event.queryStringParameters?.q;
-        if (!q || q.trim().length < 2) {
-            return errorResponse(400, "Từ khóa tìm kiếm phải có ít nhất 2 ký tự");
+        if (!q || q.trim().length < 1) {
+            return errorResponse(400, "Từ khóa tìm kiếm phải có ít nhất 1 ký tự");
         }
         const keyword = q.trim();
 
@@ -85,16 +85,25 @@ const handleSearchUser = async (event) => {
                     must_not: [{ term: { userId } }],
                     should: [
                         {
-                            match: {
+                            match_phrase_prefix: {
                                 name: {
                                     query: keyword,
-                                    fuzziness: "AUTO",
-                                    boost: 2,
+                                    boost: 5,
                                 },
                             },
                         },
                         {
                             match: {
+                                name: {
+                                    query: keyword,
+                                    fuzziness: "AUTO",
+                                    prefix_length: 2,
+                                    boost: 2,
+                                },
+                            },
+                        },
+                        {
+                            match_phrase_prefix: {
                                 email: {
                                     query: keyword,
                                     boost: 1,
