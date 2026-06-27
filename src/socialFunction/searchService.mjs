@@ -10,6 +10,8 @@
  */
 
 import { AwsClient } from "aws4fetch"; // <-- [THÊM MỚI] Import thư viện
+import { GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { docClient } from "../database.mjs";
 import { successResponse, errorResponse } from "../response.mjs";
 
 const getUserId = (event) => {
@@ -63,13 +65,34 @@ const handleSearchUser = async (event) => {
 
     try {
         const q = event.queryStringParameters?.q;
-        if (!q || q.trim().length < 1) {
-            return errorResponse(400, "Từ khóa tìm kiếm phải có ít nhất 1 ký tự");
+        if (!q || q.trim().length < 2) {
+            return errorResponse(400, "Từ khóa tìm kiếm phải có ít nhất 2 ký tự");
         }
         const keyword = q.trim();
 
-        // Multi-match: tìm theo name và email, fuzzy để chịu lỗi chính tả nhỏ
+        // [RATE LIMITING] Kiểm tra chống spam (5 giây/lần)
+        const now = Date.now();
+        const userProfile = await docClient.send(new GetCommand({
+            TableName: process.env.USER_TABLE,
+            Key: { PK: userId }
+        }));
+
+        const lastSearch = userProfile.Item?.lastSearchAt || 0;
+        if (now - lastSearch < 5000) {
+            const wait = Math.ceil((5000 - (now - lastSearch)) / 1000);
+            return errorResponse(429, `Vui lòng đợi ${wait} giây trước khi tìm kiếm tiếp.`);
+        }
+
+        // Cập nhật thời điểm search cuối cùng
+        await docClient.send(new UpdateCommand({
+            TableName: process.env.USER_TABLE,
+            Key: { PK: userId },
+            UpdateExpression: "SET lastSearchAt = :now, updatedAt = :now",
+            ExpressionAttributeValues: { ":now": now }
+        }));
+
         const osQuery = {
+            from: from,
             size: 10,
             _source: [
                 "userId",
@@ -127,7 +150,10 @@ const handleSearchUser = async (event) => {
             lastFocusDate: hit._source.lastFocusDate || 0
         }));
 
-        return successResponse({ users });
+        return successResponse({
+            users,
+            hasMore: from + users.length < (result.hits?.total?.value || 0)
+        });
     } catch (err) {
         console.error("Lỗi searchUser (OpenSearch):", err);
         return errorResponse(500, "Lỗi máy chủ nội bộ");
