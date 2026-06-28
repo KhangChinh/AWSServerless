@@ -245,35 +245,51 @@ const handleSyncAll = async (event) => {
     if (!userId) return errorResponse(401, "Unauthorized");
     try {
         const body = JSON.parse(event.body || "{}");
-        const { getDaily = false } = body;
-
+        const {
+            getProfile = true,
+            getDaily = false,
+            getInventory = false,
+            getGachaHistory = false,
+            getSocial = false
+        } = body;
+        const response = { success: true };
         const profile = await fetchProfile(userId);
         if (!profile) return errorResponse(404, "Không tìm thấy profile");
-
-        const response = {};
-
+        if (getProfile) {
+            response.profile = await mapCosmeticAssets(profile);
+        }
         const { daily, isNew } = await getOrRefreshDaily(userId, profile);
         if (isNew || getDaily) {
             response.daily = daily;
         }
-
-        response.profile = await mapCosmeticAssets(profile);
-
-        const [inv, gh, fr] = await Promise.all([
-            fetchInventoryPage(userId),
-            fetchGachaHistoryPage(userId),
-            fetchSocialPage(userId)
-        ]);
-
-        response.inventory = inv.items;
-        response.inventoryLastKey = inv.lastEvaluatedKey;
-
-        response.gachaHistory = gh.items;
-        response.gachaHistoryLastKey = gh.lastEvaluatedKey;
-
-        response.social = fr.items;
-        response.socialLastKey = fr.lastEvaluatedKey;
-
+        const promises = [];
+        if (getInventory) {
+            promises.push(
+                fetchInventoryPage(userId).then(inv => {
+                    response.inventory = inv.items;
+                    response.inventoryLastKey = inv.lastEvaluatedKey;
+                })
+            );
+        }
+        if (getGachaHistory) {
+            promises.push(
+                fetchGachaHistoryPage(userId).then(gh => {
+                    response.gachaHistory = gh.items;
+                    response.gachaHistoryLastKey = gh.lastEvaluatedKey;
+                })
+            );
+        }
+        if (getSocial) {
+            promises.push(
+                fetchSocialPage(userId).then(fr => {
+                    response.social = fr.items;
+                    response.socialLastKey = fr.lastEvaluatedKey;
+                })
+            );
+        }
+        if (promises.length > 0) {
+            await Promise.all(promises);
+        }
         return successResponse(response);
     } catch (err) {
         console.error("Lỗi syncAll:", err);
