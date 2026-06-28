@@ -3,6 +3,7 @@ import { docClient } from "../database.mjs";
 import { successResponse, errorResponse } from "../response.mjs";
 import { getCachedQuests, getCachedMasterData } from "../cacheHelper.mjs";
 
+//bibilabu
 const getUserId = (event) => {
     const auth = event.requestContext?.authorizer;
     return auth?.jwt?.claims?.sub || auth?.claims?.sub || null;
@@ -419,4 +420,5 @@ export {
     handleSyncGachaHistory,
     handleSyncSocial,
     handleGetMasterData,
+    mapCosmeticAssets
 };
