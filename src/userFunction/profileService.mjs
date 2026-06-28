@@ -118,26 +118,6 @@ const handleInitUser = async (event) => {
     return event;
 };
 
-const handleGetProfile = async (event) => {
-    const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
-    try {
-        const result = await docClient.send(
-            new GetCommand({
-                TableName: process.env.USER_TABLE,
-                Key: { PK: userId },
-            })
-        );
-        if (result.Item) {
-            return successResponse({ data: result.Item });
-        }
-        return errorResponse(404, "Không tìm thấy user profile");
-    } catch (error) {
-        console.error("Lỗi đọc profile:", error);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
-    }
-};
-
 const handleUpdateProfile = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");

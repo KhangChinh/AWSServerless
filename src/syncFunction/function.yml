@@ -34,11 +34,11 @@ syncGachaHistory:
         authorizer:
           name: myCognitoAuth
 
-syncFriends:
-  handler: src/syncFunction/syncService.handleSyncFriends
+syncSocial:
+  handler: src/syncFunction/syncService.handleSyncSocial
   events:
     - httpApi:
-        path: /sync-friends
+        path: /sync-social
         method: get
         authorizer:
           name: myCognitoAuth
