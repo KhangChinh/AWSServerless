@@ -33,13 +33,11 @@ function calculateScore(maxScoreCap, durationSeconds, elapsedSeconds) {
 // GET /minigame/levels?gameId=sudoku&lastKey=...
 // Lấy danh sách màn chơi kèm score cao nhất của user
 // ═══════════════════════════════════════════════════════
-const handleGetLevels = async (event) => {
+const handleGetSudokuLevels = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
     try {
-        const gameId = event.queryStringParameters?.gameId;
-        if (!gameId) return errorResponse(400, "gameId là bắt buộc");
 
         let exclusiveStartKey = null;
         const lastKeyStr = event.queryStringParameters?.lastKey;
@@ -52,9 +50,9 @@ const handleGetLevels = async (event) => {
             TableName: process.env.MINIGAME_TABLE,
             KeyConditionExpression: "PK = :gid",
             ExpressionAttributeValues: {
-                ":gid": gameId,
+                ":gid": "sudoku",
             },
-            Limit: 20,
+            Limit: 10,
         };
         if (exclusiveStartKey) levelParams.ExclusiveStartKey = exclusiveStartKey;
 
@@ -68,7 +66,7 @@ const handleGetLevels = async (event) => {
         // 2. Tạo danh sách Key để quét điểm của user
         const scoreKeys = levels.map((lvl) => ({
             PK: userId,
-            SK: `score#${gameId}#${lvl.SK}`,
+            SK: `score#sudoku#${lvl.SK}`,
         }));
 
         const batchResult = await docClient.send(
@@ -85,7 +83,7 @@ const handleGetLevels = async (event) => {
         let scoreMap = {};
         const userScores = batchResult.Responses?.[process.env.MINIGAME_TABLE] || [];
         for (const item of userScores) {
-            const levelId = item.SK.replace(`score#${gameId}#`, "");
+            const levelId = item.SK.replace(`score#sudoku#`, "");
             scoreMap[levelId] = {
                 personalBest: item.personalBest,
                 achievedAt: item.achievedAt,
@@ -619,7 +617,7 @@ const handleLeaderboardWorker = async (event) => {
 };
 
 export {
-    handleGetLevels,
+    handleGetSudokuLevels,
     handleStartGame,
     handleEndGame,
     handleGetGlobalLeaderboard,

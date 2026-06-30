@@ -1,8 +1,8 @@
-getMinigameLevels:
-  handler: src/minigameFunction/minigameService.handleGetLevels
+getSudokuLevels:
+  handler: src/minigameFunction/minigameService.handleGetSudokuLevels
   events:
     - httpApi:
-        path: /minigame/levels
+        path: /minigame/sudokulevels
         method: get
         authorizer:
           name: myCognitoAuth
