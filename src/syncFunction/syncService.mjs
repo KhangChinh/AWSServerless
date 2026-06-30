@@ -3,6 +3,7 @@ import { docClient } from "../database.mjs";
 import { successResponse, errorResponse } from "../response.mjs";
 import { getCachedQuests, getCachedMasterData } from "../cacheHelper.mjs";
 
+//bibilabu
 const getUserId = (event) => {
     const auth = event.requestContext?.authorizer;
     return auth?.jwt?.claims?.sub || auth?.claims?.sub || null;
@@ -18,16 +19,10 @@ const fetchProfile = async (userId) => {
     return result.Item || null;
 };
 
-/**
- * Map equippedCosmetics sang assetUrl bằng cách tra bảng ITEMDATA_TABLE.
- * Trả về profile đã bổ sung trường cosmeticAssets.
- */
 const mapCosmeticAssets = async (profile) => {
     const { equippedCosmetics } = profile;
     if (!equippedCosmetics) return profile;
-
     const keysToFetch = [];
-    // equippedBackground thay thế equippedTheme
     if (equippedCosmetics.equippedBackground) {
         keysToFetch.push({ PK: "item", SK: equippedCosmetics.equippedBackground });
     }
@@ -42,10 +37,7 @@ const mapCosmeticAssets = async (profile) => {
             keysToFetch.push({ PK: "item", SK: t });
         }
     }
-
     if (keysToFetch.length === 0) return profile;
-
-    // BatchGetItem — dùng static import
     const batchResult = await docClient.send(
         new BatchGetCommand({
             RequestItems: {
@@ -57,25 +49,45 @@ const mapCosmeticAssets = async (profile) => {
             },
         })
     );
-
     const itemMap = {};
     for (const item of batchResult.Responses?.[process.env.ITEMDATA_TABLE] || []) {
-        itemMap[item.SK] = { assets: item.assets, imageUrl: item.imageUrl, name: item.name };
+        itemMap[item.SK] = { id: item.SK, name: item.name, imageUrl: item.imageUrl, assets: item.assets };
     }
-
-    return { ...profile, cosmeticAssets: itemMap };
+    const updatedEquipped = {};
+    if (equippedCosmetics.equippedBackground) {
+        updatedEquipped.equippedBackground = itemMap[equippedCosmetics.equippedBackground] || null;
+    } else {
+        updatedEquipped.equippedBackground = null;
+    }
+    if (equippedCosmetics.equippedButton) {
+        updatedEquipped.equippedButton = itemMap[equippedCosmetics.equippedButton] || null;
+    } else {
+        updatedEquipped.equippedButton = null;
+    }
+    if (equippedCosmetics.equippedFrame) {
+        updatedEquipped.equippedFrame = itemMap[equippedCosmetics.equippedFrame] || null;
+    } else {
+        updatedEquipped.equippedFrame = null;
+    }
+    if (equippedCosmetics.equippedTitles && equippedCosmetics.equippedTitles.length > 0) {
+        updatedEquipped.equippedTitles = equippedCosmetics.equippedTitles
+            .map(t => itemMap[t])
+            .filter(Boolean);
+    } else {
+        updatedEquipped.equippedTitles = [];
+    }
+    return {
+        ...profile,
+        equippedCosmetics: updatedEquipped
+    };
 };
 
-/**
- * Lấy inventory phân trang (limit 60).
- * Trả về { items, lastEvaluatedKey }
- */
 const fetchInventoryPage = async (userId, exclusiveStartKey = null) => {
     const params = {
         TableName: process.env.INVENTORY_TABLE,
         KeyConditionExpression: "PK = :uid",
         ExpressionAttributeValues: { ":uid": userId },
-        Limit: 60,
+        Limit: 20,
         ScanIndexForward: false,
     };
     if (exclusiveStartKey) params.ExclusiveStartKey = exclusiveStartKey;
@@ -87,9 +99,6 @@ const fetchInventoryPage = async (userId, exclusiveStartKey = null) => {
     };
 };
 
-/**
- * Lấy lịch sử gacha phân trang (limit 30).
- */
 const fetchGachaHistoryPage = async (userId, exclusiveStartKey = null) => {
     const params = {
         TableName: process.env.GACHAHISTORY_TABLE,
@@ -107,16 +116,12 @@ const fetchGachaHistoryPage = async (userId, exclusiveStartKey = null) => {
     };
 };
 
-/**
- * Lấy danh sách bạn bè phân trang (limit 15).
- * Trả về cả PENDING_IN, PENDING_OUT, ACCEPTED
- */
-const fetchFriendsPage = async (userId, exclusiveStartKey = null) => {
+const fetchSocialPage = async (userId, exclusiveStartKey = null) => {
     const params = {
         TableName: process.env.SOCIAL_TABLE,
         KeyConditionExpression: "PK = :uid",
         ExpressionAttributeValues: { ":uid": userId },
-        Limit: 15,
+        Limit: 10,
     };
     if (exclusiveStartKey) params.ExclusiveStartKey = exclusiveStartKey;
 
@@ -207,13 +212,17 @@ const refreshDaily = async (userId, profile) => {
             })
         ),
     ]);
+    if (profile) {
+        if (!profile.studyStats) profile.studyStats = {};
+        profile.studyStats.timeToStreak = 30;
+        profile.updatedAt = now;
+        if (streakUpdate) {
+            profile.studyStats.streak = 0;
+        }
+    }
     return dailyItem;
 };
 
-/**
- * Lấy hoặc refresh daily của userId.
- * Trả về { daily, isNew } – isNew = true nếu vừa tạo mới
- */
 const getOrRefreshDaily = async (userId, profile) => {
     const now = Math.floor(Date.now() / 1000);
     const result = await docClient.send(
@@ -228,82 +237,60 @@ const getOrRefreshDaily = async (userId, profile) => {
         return { daily: existing, isNew: false };
     }
 
-    // Cần refresh
     const newDaily = await refreshDaily(userId, profile);
     return { daily: newDaily, isNew: true };
 };
 
-// ═══════════════════════════════════════════════════════
-// API HANDLERS
-// ═══════════════════════════════════════════════════════
-
-// ───────────────────────────────────────────────────────
-// POST /sync-all
-// Body: {
-//   updatedAt?: number,
-//   inventoryUpdatedAt?: number,
-//   gachaHistoryUpdatedAt?: number,
-//   friendUpdatedAt?: number,
-//   getDaily?: boolean
-// }
-// ───────────────────────────────────────────────────────
 const handleSyncAll = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
     try {
         const body = JSON.parse(event.body || "{}");
         const {
-            updatedAt: clientUpdatedAt,
-            inventoryUpdatedAt: clientInventoryUpdatedAt,
-            gachaHistoryUpdatedAt: clientGachaAt,
-            friendUpdatedAt: clientFriendAt,
+            getProfile = true,
             getDaily = false,
+            getInventory = false,
+            getGachaHistory = false,
+            getSocial = false
         } = body;
-
-        const isFirstLoad =
-            clientUpdatedAt == null &&
-            clientInventoryUpdatedAt == null &&
-            clientGachaAt == null &&
-            clientFriendAt == null;
-
-        // Lấy profile hiện tại
+        const response = { success: true };
         const profile = await fetchProfile(userId);
         if (!profile) return errorResponse(404, "Không tìm thấy profile");
-
-        const response = {};
-
-        // ── Profile ──
-        if (isFirstLoad || clientUpdatedAt !== profile.updatedAt) {
+        if (getProfile) {
             response.profile = await mapCosmeticAssets(profile);
         }
-
-        // ── Inventory ──
-        if (isFirstLoad || clientInventoryUpdatedAt !== profile.inventoryUpdatedAt) {
-            const inv = await fetchInventoryPage(userId);
-            response.inventory = inv.items;
-            response.inventoryLastKey = inv.lastEvaluatedKey;
-        }
-
-        // ── Gacha History ──
-        if (isFirstLoad || clientGachaAt !== profile.gachaHistoryUpdatedAt) {
-            const gh = await fetchGachaHistoryPage(userId);
-            response.gachaHistory = gh.items;
-            response.gachaHistoryLastKey = gh.lastEvaluatedKey;
-        }
-
-        // ── Friends ──
-        if (isFirstLoad || clientFriendAt !== profile.friendUpdatedAt) {
-            const fr = await fetchFriendsPage(userId);
-            response.friends = fr.items;
-            response.friendsLastKey = fr.lastEvaluatedKey;
-        }
-
-        // ── Daily ──
         const { daily, isNew } = await getOrRefreshDaily(userId, profile);
         if (isNew || getDaily) {
             response.daily = daily;
         }
-
+        const promises = [];
+        if (getInventory) {
+            promises.push(
+                fetchInventoryPage(userId).then(inv => {
+                    response.inventory = inv.items;
+                    response.inventoryLastKey = inv.lastEvaluatedKey;
+                })
+            );
+        }
+        if (getGachaHistory) {
+            promises.push(
+                fetchGachaHistoryPage(userId).then(gh => {
+                    response.gachaHistory = gh.items;
+                    response.gachaHistoryLastKey = gh.lastEvaluatedKey;
+                })
+            );
+        }
+        if (getSocial) {
+            promises.push(
+                fetchSocialPage(userId).then(fr => {
+                    response.social = fr.items;
+                    response.socialLastKey = fr.lastEvaluatedKey;
+                })
+            );
+        }
+        if (promises.length > 0) {
+            await Promise.all(promises);
+        }
         return successResponse(response);
     } catch (err) {
         console.error("Lỗi syncAll:", err);
@@ -317,11 +304,9 @@ const handleSyncAll = async (event) => {
 const handleSyncProfile = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
-
     try {
         const profile = await fetchProfile(userId);
         if (!profile) return errorResponse(404, "Không tìm thấy profile");
-
         const profileWithAssets = await mapCosmeticAssets(profile);
         return successResponse({ profile: profileWithAssets });
     } catch (err) {
@@ -344,7 +329,6 @@ const handleSyncInventory = async (event) => {
         if (lastKeyStr) {
             exclusiveStartKey = JSON.parse(decodeURIComponent(lastKeyStr));
         }
-
         const inv = await fetchInventoryPage(userId, exclusiveStartKey);
         return successResponse({ inventory: inv.items, lastEvaluatedKey: inv.lastEvaluatedKey });
     } catch (err) {
@@ -377,10 +361,10 @@ const handleSyncGachaHistory = async (event) => {
 };
 
 // ───────────────────────────────────────────────────────
-// GET /sync-friends
+// GET /sync-social
 // Query params: lastKey (JSON string, optional)
 // ───────────────────────────────────────────────────────
-const handleSyncFriends = async (event) => {
+const handleSyncSocial = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -391,10 +375,10 @@ const handleSyncFriends = async (event) => {
             exclusiveStartKey = JSON.parse(decodeURIComponent(lastKeyStr));
         }
 
-        const fr = await fetchFriendsPage(userId, exclusiveStartKey);
-        return successResponse({ friends: fr.items, lastEvaluatedKey: fr.lastEvaluatedKey });
+        const fr = await fetchSocialPage(userId, exclusiveStartKey);
+        return successResponse({ social: fr.items, lastEvaluatedKey: fr.lastEvaluatedKey });
     } catch (err) {
-        console.error("Lỗi syncFriends:", err);
+        console.error("Lỗi syncSocial:", err);
         return errorResponse(500, "Lỗi máy chủ nội bộ");
     }
 };
@@ -434,6 +418,7 @@ export {
     handleSyncProfile,
     handleSyncInventory,
     handleSyncGachaHistory,
-    handleSyncFriends,
+    handleSyncSocial,
     handleGetMasterData,
+    mapCosmeticAssets
 };

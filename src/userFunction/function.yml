@@ -5,16 +5,7 @@ postConfirmUser:
         pool: ${env:USER_POOL_NAME}
         trigger: PostConfirmation
         existing: true
-
-getProfile:
-  handler: src/userFunction/profileService.handleGetProfile
-  events:
-    - httpApi:
-        path: /get-profile
-        method: get
-        authorizer:
-          name: myCognitoAuth
-
+        
 updateProfile:
   handler: src/userFunction/profileService.handleUpdateProfile
   events:

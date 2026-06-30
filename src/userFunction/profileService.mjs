@@ -2,7 +2,7 @@ import { GetCommand, UpdateCommand, BatchGetCommand, BatchWriteCommand, } from "
 import { docClient } from "../database.mjs";
 import { successResponse, errorResponse } from "../response.mjs";
 import { refreshDaily } from "../syncFunction/syncService.mjs";
-
+import { mapCosmeticAssets } from "../syncFunction/syncService.mjs"
 const getUserId = (event) => {
     const auth = event.requestContext?.authorizer;
     return auth?.jwt?.claims?.sub || auth?.claims?.sub || null;
@@ -118,39 +118,17 @@ const handleInitUser = async (event) => {
     return event;
 };
 
-const handleGetProfile = async (event) => {
-    const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
-    try {
-        const result = await docClient.send(
-            new GetCommand({
-                TableName: process.env.USER_TABLE,
-                Key: { PK: userId },
-            })
-        );
-        if (result.Item) {
-            return successResponse({ data: result.Item });
-        }
-        return errorResponse(404, "Không tìm thấy user profile");
-    } catch (error) {
-        console.error("Lỗi đọc profile:", error);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
-    }
-};
-
 const handleUpdateProfile = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
-
     try {
         const body = JSON.parse(event.body || "{}");
         const { name } = body;
         if (!name || typeof name !== "string" || name.trim().length === 0) {
             return errorResponse(400, "name không hợp lệ");
         }
-
         const now = Date.now();
-        await docClient.send(
+        const updateResult = await docClient.send(
             new UpdateCommand({
                 TableName: process.env.USER_TABLE,
                 Key: { PK: userId },
@@ -160,17 +138,15 @@ const handleUpdateProfile = async (event) => {
                     ":name": name.trim(),
                     ":now": now,
                 },
+                ReturnValues: "ALL_NEW"
             })
         );
-        const result = await docClient.send(
-            new GetCommand({
-                TableName: process.env.USER_TABLE,
-                Key: { PK: userId },
-            })
-        );
+        let updatedProfile = updateResult.Attributes;
+        updatedProfile = await mapCosmeticAssets(updatedProfile);
         return successResponse({
+            success: true,
             message: "Cập nhật tên thành công",
-            profile: result.Item,
+            profile: updatedProfile,
         });
     } catch (error) {
         console.error("Lỗi cập nhật profile:", error);
@@ -256,9 +232,13 @@ const handleEquipCosmetics = async (event) => {
                 Key: { PK: userId },
             })
         );
+        let updatedProfile = result.Item;
+        updatedProfile = await mapCosmeticAssets(updatedProfile);
+
         return successResponse({
+            success: true,
             message: "Thay đổi trang bị thành công",
-            profile: result.Item,
+            profile: updatedProfile,
         });
     } catch (error) {
         console.error("Lỗi trang bị đồ:", error);
@@ -268,7 +248,6 @@ const handleEquipCosmetics = async (event) => {
 
 export {
     handleInitUser,
-    handleGetProfile,
     handleUpdateProfile,
     handleEquipCosmetics,
 }
