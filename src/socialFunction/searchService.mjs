@@ -92,7 +92,7 @@ const handleSearchUser = async (event) => {
         }));
 
         const osQuery = {
-            from: from,
+            from: 0,
             size: 10,
             _source: [
                 "userId",
