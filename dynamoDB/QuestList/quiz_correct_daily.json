@@ -1,9 +1,9 @@
 {
     "PK": "quest",
     "SK": "quiz_correct_daily",
-    "description": "Trả lời đúng 3 câu hỏi trắc nghiệm trong Study Planner",
-    "knowledgePoint": 200,
+    "type": "CORRECT_QUIZ_ANSWER",
     "name": "Tuyệt đỉnh trí tuệ",
+    "description": "Trả lời đúng 3 câu hỏi trắc nghiệm trong Study Planner",
     "target": 3,
-    "type": "CORRECT_QUIZ_ANSWER"
+    "knowledgePoint": 200
 }
