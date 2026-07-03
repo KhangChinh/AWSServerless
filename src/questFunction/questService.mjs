@@ -212,4 +212,72 @@ const handleClaimQuest = async (event) => {
     }
 };
 
-export { updateQuestProgress, handleGetDaily, handleClaimQuest };
+// ═══════════════════════════════════════════════════════
+// POST /study-planner/quiz-submit
+// Body: { correctAnswersCount, totalQuestions }
+// ═══════════════════════════════════════════════════════
+const handleQuizSubmit = async (event) => {
+    const userId = getUserId(event);
+    if (!userId) return errorResponse(401, "Unauthorized");
+
+    try {
+        const body = JSON.parse(event.body || "{}");
+        const { correctAnswersCount, totalQuestions } = body;
+
+        if (typeof correctAnswersCount !== "number" || typeof totalQuestions !== "number") {
+            return errorResponse(400, "correctAnswersCount và totalQuestions phải là số");
+        }
+
+        const reward = correctAnswersCount * 10;
+        
+        // 1. Cập nhật Knowledge Point vào USER_TABLE
+        let profileItem = null;
+        if (reward > 0) {
+            const profileUpdateResult = await docClient.send(new UpdateCommand({
+                TableName: process.env.USER_TABLE,
+                Key: { PK: userId },
+                UpdateExpression: "ADD budget.knowledgePoint :kp",
+                ExpressionAttributeValues: { ":kp": reward },
+                ReturnValues: "ALL_NEW"
+            }));
+            profileItem = profileUpdateResult.Attributes;
+        }
+
+        // 2. Cập nhật tiến độ Quest
+        let questUpdate = null;
+        let dailyItem = null;
+
+        // Quest 1: Hoàn thành 1 bộ câu hỏi
+        let questResult1 = await updateQuestProgress(userId, "COMPLETE_QUIZ", 1);
+        
+        // Quest 2: Trả lời đúng (nếu có câu đúng)
+        let questResult2 = null;
+        if (correctAnswersCount > 0) {
+            questResult2 = await updateQuestProgress(userId, "CORRECT_QUIZ_ANSWER", correctAnswersCount);
+        }
+
+        // Lấy kết quả daily mới nhất từ lần update cuối cùng
+        if (questResult2) {
+            questUpdate = questResult2.updatedQuests;
+            dailyItem = questResult2.updatedDaily;
+        } else if (questResult1) {
+            questUpdate = questResult1.updatedQuests;
+            dailyItem = questResult1.updatedDaily;
+        }
+
+        return successResponse({
+            message: "Đã ghi nhận kết quả bài kiểm tra",
+            earnedKP: reward,
+            questUpdate: questUpdate || null,
+            profile: profileItem || null,
+            daily: dailyItem || null,
+        });
+
+    } catch (err) {
+        console.error("Lỗi handleQuizSubmit:", err);
+        return errorResponse(500, "Lỗi máy chủ nội bộ");
+    }
+};
+
+
+export { updateQuestProgress, handleGetDaily, handleClaimQuest, handleQuizSubmit };

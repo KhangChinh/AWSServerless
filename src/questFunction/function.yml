@@ -15,3 +15,12 @@ claimQuest:
         method: post
         authorizer:
           name: myCognitoAuth
+
+quizSubmit:
+  handler: src/questFunction/questService.handleQuizSubmit
+  events:
+    - httpApi:
+        path: /study-planner/quiz-submit
+        method: post
+        authorizer:
+          name: myCognitoAuth

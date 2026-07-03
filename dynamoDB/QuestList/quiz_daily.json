@@ -1,0 +1,9 @@
+{
+    "PK": "quest",
+    "SK": "quiz_daily",
+    "description": "Hoàn thành 1 bài trắc nghiệm trong Study Planner",
+    "knowledgePoint": 150,
+    "name": "Chăm chỉ ôn tập",
+    "target": 1,
+    "type": "COMPLETE_QUIZ"
+}
