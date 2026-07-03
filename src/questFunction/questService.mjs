@@ -72,16 +72,17 @@ const updateQuestProgress = async (userId, type, amount = 1) => {
         };
     }
 
-    await docClient.send(
+    const result = await docClient.send(
         new UpdateCommand({
             TableName: process.env.QUEST_TABLE,
             Key: { PK: userId, SK: "daily" },
             UpdateExpression: "SET quests = :q",
             ExpressionAttributeValues: { ":q": updatedQuests },
+            ReturnValues: "ALL_NEW",
         })
     );
 
-    return { updatedQuests };
+    return { updatedQuests, updatedDaily: result.Attributes };
 };
 
 // ═══════════════════════════════════════════════════════

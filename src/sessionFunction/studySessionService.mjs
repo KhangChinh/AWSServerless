@@ -236,23 +236,31 @@ const handleEndSession = async (event) => {
             ExpressionAttributeValues: attrValues,
         }));
 
-        // Cộng điểm vào Profile nếu có
+        // Cộng điểm vào Profile nếu có và lấy lại kết quả mới nhất
+        let profileItem = null;
         if (earnedPoints !== null) {
-            await docClient.send(new UpdateCommand({
+            const profileUpdateResult = await docClient.send(new UpdateCommand({
                 TableName: process.env.USER_TABLE,
                 Key: { PK: userId },
                 UpdateExpression: "ADD studyStats.rankScore :pts",
-                ExpressionAttributeValues: { ":pts": earnedPoints }
+                ExpressionAttributeValues: { ":pts": earnedPoints },
+                ReturnValues: "ALL_NEW"
             }));
+            profileItem = profileUpdateResult.Attributes;
         }
 
-        // Cập nhật tiến độ quest nếu session COMPLETED
+        // Cập nhật tiến độ quest nếu session COMPLETED và lấy lại kết quả mới nhất
         let questUpdate = null;
+        let dailyItem = null;
         if (status === "COMPLETED") {
             const studiedMinutes = Math.floor(elapsed / 60);
             if (studiedMinutes > 0) {
                 try {
-                    questUpdate = await updateQuestProgress(userId, "FOCUS", studiedMinutes);
+                    const questResult = await updateQuestProgress(userId, "FOCUS", studiedMinutes);
+                    if (questResult) {
+                        questUpdate = questResult.updatedQuests;
+                        dailyItem = questResult.updatedDaily;
+                    }
                 } catch (e) {
                     console.error("Lỗi cập nhật quest:", e);
                 }
@@ -263,7 +271,9 @@ const handleEndSession = async (event) => {
             status,
             actualDurationSeconds: elapsed,
             earnedPoints: earnedPoints || 0,
-            questUpdate: questUpdate?.updatedQuests || null,
+            questUpdate: questUpdate || null,
+            profile: profileItem || null,
+            daily: dailyItem || null,
         });
     } catch (error) {
         console.error("Lỗi kết thúc session:", error);
