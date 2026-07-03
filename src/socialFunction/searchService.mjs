@@ -90,9 +90,9 @@ const handleSearchUser = async (event) => {
             UpdateExpression: "SET lastSearchAt = :now, updatedAt = :now",
             ExpressionAttributeValues: { ":now": now }
         }));
-
+        const fromIndex = 0;
         const osQuery = {
-            from: 0,
+            from: fromIndex,
             size: 10,
             _source: [
                 "userId",
@@ -152,7 +152,7 @@ const handleSearchUser = async (event) => {
 
         return successResponse({
             users,
-            hasMore: from + users.length < (result.hits?.total?.value || 0)
+            hasMore: fromIndex + users.length < (result.hits?.total?.value || 0)
         });
     } catch (err) {
         console.error("Lỗi searchUser (OpenSearch):", err);
