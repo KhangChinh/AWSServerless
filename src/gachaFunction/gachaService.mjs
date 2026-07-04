@@ -20,7 +20,7 @@ const fetchFirstPage = async (tableName, userId, limit) => {
     return { items: result.Items || [], lastKey: result.LastEvaluatedKey || null };
 };
 
-export const handleGachaApi = async (event) => {
+export const handleGacha = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
