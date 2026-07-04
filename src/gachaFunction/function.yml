@@ -1,5 +1,5 @@
 gacha:
-  handler: src/gachaFunction/gachaService.handleGacha
+  handler: src/gachaFunction/gachaService.handleGachaApi
   events:
     - httpApi:
         path: /gacha
