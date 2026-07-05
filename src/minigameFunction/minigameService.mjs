@@ -111,7 +111,7 @@ const handleGetSudokuLevels = async (event) => {
 // POST /minigame/sudokulevels/start-game
 // Body: { gameId: string, levelId: string }
 // ═══════════════════════════════════════════════════════
-export const handleStartSession = async (event) => {
+const handleStartSession = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -606,7 +606,7 @@ const handleLeaderboardWorker = async (event) => {
 
 export {
     handleGetSudokuLevels,
-    handleStartGame,
+    handleStartSession,
     handleEndGame,
     handleGetGlobalLeaderboard,
     handleGetFriendsLeaderboard,
