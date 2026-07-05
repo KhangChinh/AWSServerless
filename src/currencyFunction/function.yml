@@ -1,5 +1,5 @@
 convertPoints:
-  handler: src/gachaFunction/convertService.handleConvertKPointToKCore
+  handler: src/currencyFunction/currencyService.handleConvertKPointToKCore
   events:
     - httpApi:
         path: /convert-points

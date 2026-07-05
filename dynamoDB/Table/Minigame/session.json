@@ -1,7 +1,7 @@
 {
     "PK": "usr_12345",
     "SK": "session#sudoku",
-    "levelId": "easy_1",
+    "levelId": "level_01",
     "startTime": 1717076586,
     "sanityCost": 100,
     "status": "PENDING",

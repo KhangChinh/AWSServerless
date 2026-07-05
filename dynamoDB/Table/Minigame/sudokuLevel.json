@@ -1,9 +1,9 @@
 {
     "PK": "sudoku",
-    "SK": "easy_2",
+    "SK": "level_02",
     "name": "Sudoku Dễ 2",
     "sanityCost": 100,
-    "requiredLevel": "easy_1",
+    "requiredLevel": "level_01",
     "maxScoreCap": 1000,
     "eCoin": 10,
     "baseMapConfig": {
