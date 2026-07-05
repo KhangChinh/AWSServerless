@@ -1,8 +1,8 @@
-exchangeKPToCore:
-  handler: src/currencyFunction/currencyService.handleExchangeKPToCore
+convertPoints:
+  handler: src/gachaFunction/convertService.handleConvertKPointToKCore
   events:
     - httpApi:
-        path: /currency/exchange
+        path: /convert-points
         method: post
         authorizer:
           name: myCognitoAuth

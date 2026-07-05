@@ -1,89 +1,67 @@
-import {
-    GetCommand,
-    UpdateCommand,
-} from "@aws-sdk/lib-dynamodb";
+import { GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "../database.mjs";
 import { successResponse, errorResponse } from "../response.mjs";
+import { mapCosmeticAssets } from "../syncFunction/syncService.mjs";
 
 const getUserId = (event) => {
     const auth = event.requestContext?.authorizer;
     return auth?.jwt?.claims?.sub || auth?.claims?.sub || null;
 };
 
-// Tỉ giá cố định: 160 KP = 1 Core
-const KP_PER_CORE = 160;
-
-// ═══════════════════════════════════════════════════════
-// POST /currency/exchange
-// Body: { amount: number }  (số lượng knowledgeCore muốn mua)
-// Đổi knowledgePoint → knowledgeCore
-// ═══════════════════════════════════════════════════════
-const handleExchangeKPToCore = async (event) => {
+export const handleConvertKPointToKCore = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
     try {
         const body = JSON.parse(event.body || "{}");
-        const { amount } = body;
+        const targetCores = parseInt(body.targetCores, 10); // Số knowledgeCore muốn đổi
 
-        if (!amount || typeof amount !== "number" || amount <= 0 || !Number.isInteger(amount)) {
-            return errorResponse(400, "amount phải là số nguyên dương");
+        if (!targetCores || targetCores <= 0) {
+            return errorResponse(400, "Số lượng quy đổi không hợp lệ.");
         }
 
-        const kpRequired = amount * KP_PER_CORE;
+        const requiredPoints = targetCores * 150;
 
-        // Lấy profile
-        const profileResult = await docClient.send(
-            new GetCommand({
-                TableName: process.env.USER_TABLE,
-                Key: { PK: userId },
-            })
-        );
-        const profile = profileResult.Item;
+        // 1. Lấy Profile
+        const profileRes = await docClient.send(new GetCommand({
+            TableName: process.env.USER_TABLE,
+            Key: { PK: userId }
+        }));
+
+        const profile = profileRes.Item;
         if (!profile) return errorResponse(404, "Không tìm thấy profile");
 
-        const currentKP = profile.budget?.knowledgePoint || 0;
-        const currentCore = profile.budget?.knowledgeCore || 0;
+        // 2. Kiểm tra số dư
+        let budget = profile.budget || {};
+        let { knowledgeCore = 0, knowledgePoint = 0 } = budget;
 
-        if (currentKP < kpRequired) {
-            return errorResponse(402, `Không đủ knowledgePoint. Cần ${kpRequired}, hiện có ${currentKP}`);
+        if (knowledgePoint < requiredPoints) {
+            return errorResponse(400, `Không đủ tài nguyên. Cần ${requiredPoints} Knowledge Point.`);
         }
 
-        const newKP = currentKP - kpRequired;
-        const newCore = currentCore + amount;
+        // 3. Tính toán
+        budget.knowledgePoint -= requiredPoints;
+        budget.knowledgeCore += targetCores;
         const now = Date.now();
 
-        await docClient.send(
-            new UpdateCommand({
-                TableName: process.env.USER_TABLE,
-                Key: { PK: userId },
-                UpdateExpression:
-                    "SET budget.knowledgePoint = :kp, budget.knowledgeCore = :kc, updatedAt = :now",
-                ConditionExpression: "budget.knowledgePoint >= :required",
-                ExpressionAttributeValues: {
-                    ":kp": newKP,
-                    ":kc": newCore,
-                    ":now": now,
-                    ":required": kpRequired,
-                },
-            })
-        );
+        // 4. Lưu DB
+        await docClient.send(new UpdateCommand({
+            TableName: process.env.USER_TABLE,
+            Key: { PK: userId },
+            UpdateExpression: "SET budget = :b, updatedAt = :u",
+            ExpressionAttributeValues: { ":b": budget, ":u": now }
+        }));
+
+        // 5. Trả kết quả đồng bộ
+        profile.budget = budget;
+        const finalProfile = await mapCosmeticAssets(profile);
 
         return successResponse({
-            message: `Đổi thành công ${amount} knowledgeCore`,
-            newBudget: {
-                knowledgePoint: newKP,
-                knowledgeCore: newCore,
-            },
-            updatedAt: now,
+            success: true,
+            profile: finalProfile
         });
-    } catch (err) {
-        if (err.name === "ConditionalCheckFailedException") {
-            return errorResponse(402, "Không đủ knowledgePoint để đổi");
-        }
-        console.error("Lỗi exchangeKPToCore:", err);
+    } catch (error) {
+        console.error("Lỗi Convert:", error);
         return errorResponse(500, "Lỗi máy chủ nội bộ");
     }
 };
-
-export { handleExchangeKPToCore };
