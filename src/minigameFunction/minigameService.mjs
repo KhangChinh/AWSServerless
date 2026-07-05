@@ -175,11 +175,13 @@ const handleStartSession = async (event) => {
         // ==============================================================================
         let seed = "";
         let solutionGrid = "";
+        let puzzleGrid = ""; // 👈 BỔ SUNG KHAI BÁO BIẾN
 
         if (gameId === 'sudoku') {
             const boardData = generateSudokuBoard(level.baseMapConfig);
             seed = boardData.seed;
             solutionGrid = boardData.solutionGrid;
+            puzzleGrid = boardData.puzzleGrid; // 👈 LẤY ĐỀ BÀI TỪ GENERATOR
         } else {
             return errorResponse(400, "Unsupported gameId");
         }
@@ -195,7 +197,8 @@ const handleStartSession = async (event) => {
             sanityCost: sanityCost,
             status: "PENDING",
             seed: seed,
-            solutionGrid: solutionGrid
+            solutionGrid: solutionGrid,
+
         };
 
         // ==============================================================================
@@ -235,6 +238,7 @@ const handleStartSession = async (event) => {
             sessionData: {
                 sessionId: sessionItem.SK,
                 seed: sessionItem.seed,
+                puzzleGrid: puzzleGrid, // 👈 GỬI ĐỀ BÀI XUỐNG CHO CLIENT RENDER 
                 status: sessionItem.status
             },
             baseMapConfig: level.baseMapConfig
