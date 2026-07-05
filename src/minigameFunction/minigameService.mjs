@@ -108,10 +108,10 @@ const handleGetSudokuLevels = async (event) => {
 };
 
 // ═══════════════════════════════════════════════════════
-// POST /minigame/start
+// POST /minigame/sudokulevels/start-game
 // Body: { gameId: string, levelId: string }
 // ═══════════════════════════════════════════════════════
-const handleStartGame = async (event) => {
+export const handleStartSession = async (event) => {
     const userId = getUserId(event);
     if (!userId) return errorResponse(401, "Unauthorized");
 
@@ -119,105 +119,93 @@ const handleStartGame = async (event) => {
         const body = JSON.parse(event.body || "{}");
         const { gameId, levelId } = body;
 
-        if (!gameId || !levelId) {
-            return errorResponse(400, "gameId và levelId là bắt buộc");
+        if (!gameId || !levelId) return errorResponse(400, "Missing gameId or levelId");
+
+        const now = Date.now();
+
+        // 1. Fetch Profile và Level Info song song để tiết kiệm thời gian
+        const [profileRes, levelRes] = await Promise.all([
+            docClient.send(new GetCommand({
+                TableName: process.env.USER_TABLE,
+                Key: { PK: userId }
+            })),
+            docClient.send(new GetCommand({
+                TableName: process.env.GAMEDATA_TABLE, // Bảng chứa màn chơi
+                Key: { PK: gameId, SK: levelId }
+            }))
+        ]);
+
+        const profile = profileRes.Item;
+        const level = levelRes.Item;
+
+        if (!profile) return errorResponse(404, "Profile not found");
+        if (!level) return errorResponse(404, "Level not found");
+
+        // 2. Kiểm tra và trừ Sanity
+        let budget = profile.budget || {};
+        const sanityCost = level.sanityCost || 0;
+
+        if (budget.sanity < sanityCost) {
+            return errorResponse(400, "Not enough sanity");
         }
 
-        // Lấy thông tin màn chơi
-        const levelResult = await docClient.send(
-            new GetCommand({
-                TableName: process.env.MINIGAME_TABLE,
-                Key: { PK: gameId, SK: levelId },
-            })
-        );
-        const level = levelResult.Item;
-        if (!level) return errorResponse(404, "Không tìm thấy màn chơi");
+        budget.sanity -= sanityCost;
 
-        // Lấy profile
-        const profileResult = await docClient.send(
-            new GetCommand({
+        // 3. Tách logic tạo màn chơi dựa trên gameId
+        let seed = "";
+        let solutionGrid = "";
+
+        if (gameId === 'sudoku') {
+            const boardData = generateSudokuBoard(level.baseMapConfig);
+            seed = boardData.seed;
+            solutionGrid = boardData.solutionGrid;
+        } else {
+            return errorResponse(400, "Unsupported gameId");
+        }
+
+        // 4. Tạo Session Data
+        const sessionItem = {
+            PK: userId,
+            SK: `session#${gameId}`,
+            levelId: levelId,
+            startTime: now,
+            sanityCost: sanityCost,
+            status: "PENDING",
+            seed: seed,
+            solutionGrid: solutionGrid
+        };
+
+        // 5. Lưu Session và Cập nhật Profile song song
+        await Promise.all([
+            docClient.send(new PutCommand({
+                TableName: process.env.SESSION_TABLE, // Bảng lưu session đang chơi
+                Item: sessionItem
+            })),
+            docClient.send(new UpdateCommand({
                 TableName: process.env.USER_TABLE,
                 Key: { PK: userId },
-            })
-        );
-        const profile = profileResult.Item;
-        if (!profile) return errorResponse(404, "Không tìm thấy profile");
+                UpdateExpression: "SET budget = :b, updatedAt = :u",
+                ExpressionAttributeValues: { ":b": budget, ":u": now }
+            }))
+        ]);
 
-        const { sanityCost, requiredLevel, baseMapConfig } = level;
+        // 6. Trả kết quả về cho client
+        profile.budget = budget; // Trả về profile đã trừ điểm để sync
 
-        // Kiểm tra sanity
-        if ((profile.budget?.sanity || 0) < sanityCost) {
-            return errorResponse(402, "Không đủ sanity để chơi màn này", {
-                currentSanity: profile.budget?.sanity || 0,
-                updatedAt: profile.updatedAt,
-            });
-        }
-
-        // Kiểm tra requiredLevel (màn trước đã vượt chưa)
-        if (requiredLevel) {
-            const reqScore = await docClient.send(
-                new GetCommand({
-                    TableName: process.env.MINIGAME_TABLE,
-                    Key: { PK: userId, SK: `score#${gameId}#${requiredLevel}` },
-                })
-            );
-            if (!reqScore.Item) {
-                return errorResponse(403, "Bạn cần hoàn thành màn trước để mở khóa màn này");
-            }
-        }
-
-        // Tạo seed ngẫu nhiên cho PRNG
-        const seed = Math.floor(Math.random() * 1000000);
-        const startTime = Date.now();
-        const sanityCostFinal = sanityCost || 0;
-
-        const newSanity = (profile.budget?.sanity || 0) - sanityCostFinal;
-
-        // Trừ sanity
-        await docClient.send(
-            new UpdateCommand({
-                TableName: process.env.USER_TABLE,
-                Key: { PK: userId },
-                UpdateExpression:
-                    "SET budget.sanity = :sanity, updatedAt = :now",
-                ExpressionAttributeValues: {
-                    ":sanity": newSanity,
-                    ":now": startTime,
-                    ":requiredSanity": sanityCostFinal,
-                },
-                ConditionExpression: "budget.sanity >= :requiredSanity",
-            })
-        );
-
-        // Tạo Payload
-        const payload = JSON.stringify({ userId, gameId, levelId, seed, startTime, sanityCost: sanityCostFinal });
-
-        // Ký HMAC để chống sửa đổi thông tin ở Client
-        const hmac = crypto.createHmac("sha256", JWT_SECRET).update(payload).digest("hex");
-        const gameToken = Buffer.from(payload).toString("base64") + "." + hmac;
-
-        // Trả về cho client (KHÔNG gửi solutionGrid)
         return successResponse({
-            gameToken,
-            seed,
-            baseMapConfig: {
-                ...baseMapConfig,
-                solutionGrid: undefined, // loại bỏ solution
+            success: true,
+            profile: profile,
+            sessionData: {
+                sessionId: sessionItem.SK, // Để lúc end game submit lên
+                seed: sessionItem.seed,
+                status: sessionItem.status
             },
-            newBudget: {
-                sanity: newSanity,
-                knowledgeCore: profile.budget?.knowledgeCore,
-                knowledgePoint: profile.budget?.knowledgePoint,
-                eCoin: profile.budget?.eCoin,
-            },
-            updatedAt: startTime,
+            baseMapConfig: level.baseMapConfig // Gửi kèm cho UI render
         });
-    } catch (err) {
-        if (err.name === "ConditionalCheckFailedException") {
-            return errorResponse(402, "Không đủ sanity");
-        }
-        console.error("Lỗi startGame:", err);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+
+    } catch (error) {
+        console.error("Lỗi Start Game Session:", error);
+        return errorResponse(500, error.message || "Lỗi xử lý tạo màn chơi");
     }
 };
 

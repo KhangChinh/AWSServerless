@@ -7,11 +7,11 @@ getSudokuLevels:
         authorizer:
           name: myCognitoAuth
 
-startMinigame:
-  handler: src/minigameFunction/minigameService.handleStartGame
+startGameSession:
+  handler: src/minigameFunction/minigameService.handleStartSession
   events:
     - httpApi:
-        path: /minigame/start
+        path: /minigame/sudokulevels/start-game
         method: post
         authorizer:
           name: myCognitoAuth
