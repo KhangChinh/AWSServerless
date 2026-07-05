@@ -1,13 +1,20 @@
 service: aws-uchimi
 useDotenv: true
+build:
+  esbuild:
+    bundle: true
+    minify: true
+    external:
+      - '@aws-sdk/*'
 provider:
   name: aws
   runtime: nodejs20.x
   region: ${env:AWS_REGION}
   memorySize: 512
   environment:
-    OPENSEARCH_ENDPOINT: ${env:OPENSEARCH_ENDPOINT}
-    OS_User_INDEX: ${env:OS_User_INDEX}
+    ALGOLIA_APP_ID: ${env:ALGOLIA_APP_ID}
+    ALGOLIA_WRITE_KEY: ${env:ALGOLIA_WRITE_KEY}
+    ALGOLIA_USER_INDEX: ${env:ALGOLIA_USER_INDEX}
     ASSETS_BUCKET: ${env:ASSETS_BUCKET}
     DEFAULT_AVATAR_URL: ${env:DEFAULT_AVATAR_URL}
     USER_TABLE: ${env:USER_TABLE}
@@ -63,15 +70,6 @@ provider:
             - "arn:aws:s3:::${env:ASSETS_BUCKET}/public-assets/*"
             - "arn:aws:s3:::${env:ASSETS_BUCKET}/avatars/*"
             - "arn:aws:s3:::${env:ASSETS_BUCKET}/uploads/*"
-        # ── OpenSearch ────────────────────────────────────
-        - Effect: Allow
-          Action:
-            - es:ESHttpGet
-            - es:ESHttpPost
-            - es:ESHttpPut
-            - es:ESHttpDelete
-          Resource:
-            - "arn:aws:es:${self:provider.region}:*:domain/*"
 
   httpApi:
     cors: true

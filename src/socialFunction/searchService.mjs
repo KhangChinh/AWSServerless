@@ -1,15 +1,5 @@
-/**
- * searchService.mjs
- * Tìm kiếm user bằng Amazon OpenSearch Service.
- *
- * Luồng index: DynamoDB Streams → Lambda (streamIndexer) → OpenSearch.
- * Khi user cập nhật profile, bản ghi được tự động sync vào OS index.
- *
- * Index: "users"
- * Document: { userId, name, email, avatarUrl, streak, equippedTitles }
- */
-
-import { AwsClient } from "aws4fetch"; // <-- [THÊM MỚI] Import thư viện
+import algoliasearch from "algoliasearch";
+import { unmarshall } from "@aws-sdk/util-dynamodb";
 import { GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "../database.mjs";
 import { successResponse, errorResponse } from "../response.mjs";
@@ -19,48 +9,19 @@ const getUserId = (event) => {
     return auth?.jwt?.claims?.sub || auth?.claims?.sub || null;
 };
 
-const OPENSEARCH_ENDPOINT = process.env.OPENSEARCH_ENDPOINT;
-const OS_User_INDEX = process.env.OS_User_INDEX;
-
-// <-- [THÊM MỚI] Khởi tạo aws4fetch client
-// Tự động lấy credentials từ biến môi trường của AWS Lambda
-const aws = new AwsClient({
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    sessionToken: process.env.AWS_SESSION_TOKEN,
-    region: process.env.AWS_REGION || "ap-southeast-1", // Mặc định theo region của bạn
-    service: "es"
-});
-
-/**
- * Gọi OpenSearch REST API bằng aws.fetch để tự động ký AWS SigV4.
- * Lambda dùng IAM execution role có es:ESHttpGet/Post permission.
- */
-async function osSearch(query) {
-    const url = `${OPENSEARCH_ENDPOINT}/${OS_User_INDEX}/_search`;
-    const res = await aws.fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(query),
-    });
-
-    if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`OpenSearch error ${res.status}: ${text}`);
-    }
-    return res.json();
-}
+// Khởi tạo Algolia Client bằng Write API Key (dùng cho Backend)
+const algoliaClient = algoliasearch(
+    process.env.ALGOLIA_APP_ID,
+    process.env.ALGOLIA_WRITE_KEY
+);
+const index = algoliaClient.initIndex(process.env.ALGOLIA_USER_INDEX || "users");
 
 // ═══════════════════════════════════════════════════════
 // GET /friends/search?q=keyword
-// Tìm kiếm user theo name hoặc email qua OpenSearch.
-// Trả về thông tin công khai: userId, name, avatarUrl, streak, titles.
 // ═══════════════════════════════════════════════════════
 const handleSearchUser = async (event) => {
-    console.log("Start Search!!!!!!!!!!!!!!!!!!!!!!")
+    console.log("Start Algolia Search!");
     const userId = getUserId(event);
-    console.log("EW EVENT", event)
-    console.log("Extracted userId:", userId);
     if (!userId) return errorResponse(401, "Unauthorized");
 
     try {
@@ -70,7 +31,7 @@ const handleSearchUser = async (event) => {
         }
         const keyword = q.trim();
 
-        // [RATE LIMITING] Kiểm tra chống spam (5 giây/lần)
+        // [RATE LIMITING] Giữ nguyên logic chống spam của bạn
         const now = Date.now();
         const userProfile = await docClient.send(new GetCommand({
             TableName: process.env.USER_TABLE,
@@ -83,149 +44,106 @@ const handleSearchUser = async (event) => {
             return errorResponse(429, `Vui lòng đợi ${wait} giây trước khi tìm kiếm tiếp.`);
         }
 
-        // Cập nhật thời điểm search cuối cùng
         await docClient.send(new UpdateCommand({
             TableName: process.env.USER_TABLE,
             Key: { PK: userId },
             UpdateExpression: "SET lastSearchAt = :now, updatedAt = :now",
             ExpressionAttributeValues: { ":now": now }
         }));
-        const fromIndex = 0;
-        const osQuery = {
-            from: fromIndex,
-            size: 10,
-            _source: [
-                "userId",
-                "name",
-                "email",
-                "avatarUrl",
-                "rankScore",
-                "streak",
-                "lastFocusDate"
-            ],
-            query: {
-                bool: {
-                    must_not: [{ term: { userId } }],
-                    should: [
-                        {
-                            match_phrase_prefix: {
-                                name: {
-                                    query: keyword,
-                                    boost: 5,
-                                },
-                            },
-                        },
-                        {
-                            match: {
-                                name: {
-                                    query: keyword,
-                                    fuzziness: "AUTO",
-                                    prefix_length: 2,
-                                    boost: 2,
-                                },
-                            },
-                        },
-                        {
-                            match_phrase_prefix: {
-                                email: {
-                                    query: keyword,
-                                    boost: 1,
-                                },
-                            },
-                        },
-                    ],
-                    minimum_should_match: 1,
-                },
-            },
-        };
 
-        const result = await osSearch(osQuery);
-        const users = (result.hits?.hits || []).map((hit) => ({
-            userId: hit._source.userId,
-            name: hit._source.name || "",
-            email: hit._source.email || "",
-            avatarUrl: hit._source.avatarUrl || "",
-            rankScore: hit._source.rankScore || 0,
-            streak: hit._source.streak || 0,
-            lastFocusDate: hit._source.lastFocusDate || 0
+        // --- GỌI ALGOLIA SEARCH ---
+        const searchResults = await index.search(keyword, {
+            hitsPerPage: 10,
+            // (Tuỳ chọn) Tránh user tự tìm thấy chính mình nếu lỡ gõ tên mình
+            filters: `NOT objectID:${userId}`
+        });
+
+        // Mapping kết quả trả về cho Frontend
+        const users = searchResults.hits.map((hit) => ({
+            PK: hit.PK,
+            avatarUrl: hit.avatarUrl || "",
+            information: { name: hit.information?.name || "" },
+            studyStats: {
+                rankScore: hit.studyStats?.rankScore || 0,
+                streak: hit.studyStats?.streak || 0
+            },
+            equippedCosmetics: {
+                equippedFrame: hit.equippedCosmetics?.equippedFrame || null
+            }
         }));
 
         return successResponse({
             users,
-            hasMore: fromIndex + users.length < (result.hits?.total?.value || 0)
+            hasMore: searchResults.page < searchResults.nbPages - 1
         });
     } catch (err) {
-        console.error("Lỗi searchUser (OpenSearch):", err);
+        console.error("Lỗi searchUser (Algolia):", err);
         return errorResponse(500, "Lỗi máy chủ nội bộ");
     }
 };
 
 // ═══════════════════════════════════════════════════════
-// DynamoDB Streams → Lambda trigger
-// Sync user profile thay đổi vào OpenSearch index "users".
-// Handler được khai báo trong function.yml (streamIndexer).
+// DynamoDB Streams → Lambda trigger (Đồng bộ lên Algolia)
 // ═══════════════════════════════════════════════════════
 const handleStreamIndexer = async (event) => {
-    const ops = [];
-    console.log("DynamoDB Event Records:", JSON.stringify(event.Records, null, 2));
+    console.log("DynamoDB Event Records:", event.Records.length);
+
+    const objectsToSave = [];
+    const objectsToDelete = [];
 
     for (const record of event.Records) {
-        if (record.eventName === "REMOVE") continue; // Nếu cần xóa document trên OS khi bị xóa ở DB, bạn có thể xử lý thêm ở đây
+        // Lấy PK (userId)
+        const userId = record.dynamodb?.Keys?.PK?.S;
+        if (!userId) continue;
 
-        const newImage = record.dynamodb?.NewImage;
-        if (!newImage) {
-            console.log("Bỏ qua vì không có newImage");
+        // Nếu User bị xóa khỏi DynamoDB -> Xóa khỏi Algolia
+        if (record.eventName === "REMOVE") {
+            objectsToDelete.push(userId);
             continue;
         }
-        const userId = newImage.PK?.S;
-        if (!userId) {
-            console.log("Bỏ qua vì không tìm thấy PK (userId)");
-            continue;
-        }
-        const info = newImage.information?.M || {};
-        const studyStats = newImage.studyStats?.M || {};
 
+        // Lấy dữ liệu mới nhất (dùng unmarshall để biến obj phức tạp của DynamoDB thành JSON thường)
+        if (!record.dynamodb?.NewImage) continue;
+        const item = unmarshall(record.dynamodb.NewImage);
+
+        // Chuẩn bị Object để đẩy lên Algolia
+        // Bắt buộc phải có trường 'objectID' để Algolia biết cập nhật bản ghi nào
         const doc = {
-            userId: userId,
-            name: info.name?.S || "",
-            email: info.email?.S || "",
-            avatarUrl: info.avatarUrl?.S || "",
-            rankScore: Number(studyStats.rankScore?.N || 0),
-            streak: Number(studyStats.streak?.N || 0),
-            lastFocusDate: Number(studyStats.lastFocusDate?.N || 0)
-        };
-        console.log("Chuẩn bị đẩy doc này lên OpenSearch:", doc);
-        const url = `${OPENSEARCH_ENDPOINT}/${OS_User_INDEX}/_doc/${userId}`;
-        ops.push(
-            aws.fetch(url, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(doc),
-            })
-        );
-    }
-
-    if (ops.length > 0) {
-        const results = await Promise.allSettled(ops);
-        for (let i = 0; i < results.length; i++) {
-            const r = results[i];
-
-            if (r.status === "rejected") {
-                console.error(`Lỗi ở record ${i}:`, r.reason);
-            } else {
-                // Đọc nội dung OpenSearch trả về
-                const responseBody = await r.value.text();
-
-                if (!r.value.ok) {
-                    console.error(`Thất bại ở record ${i}. HTTP ${r.value.status}:`, responseBody);
-                } else {
-                    console.log(`Đẩy lên OpenSearch THÀNH CÔNG record ${i}! Phản hồi:`, responseBody);
-                }
+            objectID: userId, // Bắt buộc
+            PK: userId,
+            avatarUrl: item.information?.avatarUrl || item.avatarUrl || process.env.DEFAULT_AVATAR_URL,
+            information: {
+                name: item.information?.name || "N/A"
+            },
+            studyStats: {
+                rankScore: Number(item.studyStats?.rankScore || 0),
+                streak: Number(item.studyStats?.streak || 0)
+            },
+            equippedCosmetics: {
+                equippedFrame: item.equippedCosmetics?.equippedFrame || null
             }
-        }
+        };
+
+        objectsToSave.push(doc);
     }
 
-    return { processed: ops.length };
+    try {
+        // Batch Save: Lưu hoặc Cập nhật nhiều user cùng lúc
+        if (objectsToSave.length > 0) {
+            await index.saveObjects(objectsToSave);
+            console.log(`✅ Đã đồng bộ ${objectsToSave.length} users lên Algolia`);
+        }
+
+        // Batch Delete: Xóa user
+        if (objectsToDelete.length > 0) {
+            await index.deleteObjects(objectsToDelete);
+            console.log(`🗑️ Đã xóa ${objectsToDelete.length} users khỏi Algolia`);
+        }
+    } catch (error) {
+        console.error("❌ Lỗi đồng bộ Algolia:", error);
+    }
+
+    return { processed: event.Records.length };
 };
 
 export { handleSearchUser, handleStreamIndexer };
