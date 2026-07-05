@@ -130,7 +130,7 @@ const handleStartSession = async (event) => {
                 Key: { PK: userId }
             })),
             docClient.send(new GetCommand({
-                TableName: process.env.GAMEDATA_TABLE, // Bảng chứa màn chơi
+                TableName: process.env.MINIGAME_TABLE, // Bảng chứa màn chơi
                 Key: { PK: gameId, SK: levelId }
             }))
         ]);
@@ -178,7 +178,7 @@ const handleStartSession = async (event) => {
         // 5. Lưu Session và Cập nhật Profile song song
         await Promise.all([
             docClient.send(new PutCommand({
-                TableName: process.env.SESSION_TABLE, // Bảng lưu session đang chơi
+                TableName: process.env.MINIGAME_TABLE, // Bảng lưu session đang chơi
                 Item: sessionItem
             })),
             docClient.send(new UpdateCommand({
