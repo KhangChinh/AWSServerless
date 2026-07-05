@@ -10,7 +10,7 @@ import crypto from "crypto";
 import { docClient } from "../database.mjs";
 import { successResponse, errorResponse } from "../response.mjs";
 import { updateQuestProgress } from "../questFunction/questService.mjs";
-
+import { generateSudokuBoard } from "./sudokuGenerator.mjs";
 const JWT_SECRET = process.env.GAME_SECRET_KEY || "fallback_secret"; // Dùng env trong thực tế
 
 const getUserId = (event) => {
@@ -113,27 +113,44 @@ const handleGetSudokuLevels = async (event) => {
 // ═══════════════════════════════════════════════════════
 const handleStartSession = async (event) => {
     const userId = getUserId(event);
+    console.log(">>> [DEBUG] userId:", userId, "| Type:", typeof userId);
+
     if (!userId) return errorResponse(401, "Unauthorized");
 
     try {
         const body = JSON.parse(event.body || "{}");
         const { gameId, levelId } = body;
 
+        console.log(">>> [DEBUG] gameId:", gameId, "| Type:", typeof gameId);
+        console.log(">>> [DEBUG] levelId:", levelId, "| Type:", typeof levelId);
+
         if (!gameId || !levelId) return errorResponse(400, "Missing gameId or levelId");
 
         const now = Date.now();
 
-        // 1. Fetch Profile và Level Info song song để tiết kiệm thời gian
-        const [profileRes, levelRes] = await Promise.all([
-            docClient.send(new GetCommand({
-                TableName: process.env.USER_TABLE,
-                Key: { PK: userId }
-            })),
-            docClient.send(new GetCommand({
-                TableName: process.env.MINIGAME_TABLE, // Bảng chứa màn chơi
-                Key: { PK: gameId, SK: levelId }
-            }))
-        ]);
+        // ==============================================================================
+        // 1. Fetch Profile và Level Info
+        // ==============================================================================
+        console.log(">>> [DEBUG] Bắt đầu gọi Promise.all số 1 (Fetch Profile & Level)...");
+
+        const fetchProfilePromise = docClient.send(new GetCommand({
+            TableName: process.env.USER_TABLE,
+            Key: { PK: userId }
+        })).catch(err => {
+            console.error(">>> [ERROR BẮT ĐƯỢC] Lỗi tại Fetch Profile (USER_TABLE). Key gửi đi:", JSON.stringify({ PK: userId }));
+            throw err;
+        });
+
+        const fetchLevelPromise = docClient.send(new GetCommand({
+            TableName: process.env.MINIGAME_TABLE,
+            Key: { PK: gameId, SK: levelId }
+        })).catch(err => {
+            console.error(">>> [ERROR BẮT ĐƯỢC] Lỗi tại Fetch Level (MINIGAME_TABLE). Key gửi đi:", JSON.stringify({ PK: gameId, SK: levelId }));
+            throw err;
+        });
+
+        const [profileRes, levelRes] = await Promise.all([fetchProfilePromise, fetchLevelPromise]);
+        console.log(">>> [DEBUG] Fetch thành công! Có Profile:", !!profileRes.Item, "| Có Level:", !!levelRes.Item);
 
         const profile = profileRes.Item;
         const level = levelRes.Item;
@@ -141,7 +158,9 @@ const handleStartSession = async (event) => {
         if (!profile) return errorResponse(404, "Profile not found");
         if (!level) return errorResponse(404, "Level not found");
 
+        // ==============================================================================
         // 2. Kiểm tra và trừ Sanity
+        // ==============================================================================
         let budget = profile.budget || {};
         const sanityCost = level.sanityCost || 0;
 
@@ -151,7 +170,9 @@ const handleStartSession = async (event) => {
 
         budget.sanity -= sanityCost;
 
+        // ==============================================================================
         // 3. Tách logic tạo màn chơi dựa trên gameId
+        // ==============================================================================
         let seed = "";
         let solutionGrid = "";
 
@@ -163,7 +184,9 @@ const handleStartSession = async (event) => {
             return errorResponse(400, "Unsupported gameId");
         }
 
+        // ==============================================================================
         // 4. Tạo Session Data
+        // ==============================================================================
         const sessionItem = {
             PK: userId,
             SK: `session#${gameId}`,
@@ -175,36 +198,50 @@ const handleStartSession = async (event) => {
             solutionGrid: solutionGrid
         };
 
+        // ==============================================================================
         // 5. Lưu Session và Cập nhật Profile song song
-        await Promise.all([
-            docClient.send(new PutCommand({
-                TableName: process.env.MINIGAME_TABLE, // Bảng lưu session đang chơi
-                Item: sessionItem
-            })),
-            docClient.send(new UpdateCommand({
-                TableName: process.env.USER_TABLE,
-                Key: { PK: userId },
-                UpdateExpression: "SET budget = :b, updatedAt = :u",
-                ExpressionAttributeValues: { ":b": budget, ":u": now }
-            }))
-        ]);
+        // ==============================================================================
+        console.log(">>> [DEBUG] Bắt đầu gọi Promise.all số 2 (Save Session & Update Profile)...");
 
+        const putSessionPromise = docClient.send(new PutCommand({
+            TableName: process.env.MINIGAME_TABLE,
+            Item: sessionItem
+        })).catch(err => {
+            console.error(">>> [ERROR BẮT ĐƯỢC] Lỗi tại Put Session (MINIGAME_TABLE). Item gửi đi:", JSON.stringify(sessionItem));
+            throw err;
+        });
+
+        const updateProfilePromise = docClient.send(new UpdateCommand({
+            TableName: process.env.USER_TABLE,
+            Key: { PK: userId },
+            UpdateExpression: "SET budget = :b, updatedAt = :u",
+            ExpressionAttributeValues: { ":b": budget, ":u": now }
+        })).catch(err => {
+            console.error(">>> [ERROR BẮT ĐƯỢC] Lỗi tại Update Profile (USER_TABLE). Key gửi đi:", JSON.stringify({ PK: userId }));
+            throw err;
+        });
+
+        await Promise.all([putSessionPromise, updateProfilePromise]);
+        console.log(">>> [DEBUG] Lưu Session & Cập nhật Profile thành công!");
+
+        // ==============================================================================
         // 6. Trả kết quả về cho client
-        profile.budget = budget; // Trả về profile đã trừ điểm để sync
+        // ==============================================================================
+        profile.budget = budget;
 
         return successResponse({
             success: true,
             profile: profile,
             sessionData: {
-                sessionId: sessionItem.SK, // Để lúc end game submit lên
+                sessionId: sessionItem.SK,
                 seed: sessionItem.seed,
                 status: sessionItem.status
             },
-            baseMapConfig: level.baseMapConfig // Gửi kèm cho UI render
+            baseMapConfig: level.baseMapConfig
         });
 
     } catch (error) {
-        console.error("Lỗi Start Game Session:", error);
+        console.error(">>> [CATCH CUỐI CÙNG] Lỗi Start Game Session:", error);
         return errorResponse(500, error.message || "Lỗi xử lý tạo màn chơi");
     }
 };
