@@ -2,7 +2,7 @@ import { GetCommand, PutCommand, BatchGetCommand, UpdateCommand, QueryCommand } 
 import { docClient } from "../database.mjs";
 import { successResponse, errorResponse } from "../response.mjs";
 import { getCachedMasterData } from "../cacheHelper.mjs";
-import { mapCosmeticAssets } from "../syncFunction/syncService.mjs"; // Tái sử dụng hàm map tài sản
+import { mapCosmeticAssets, fetchInventoryPage } from "../syncFunction/syncService.mjs";
 
 const getUserId = (event) => {
     const auth = event.requestContext?.authorizer;
@@ -223,15 +223,24 @@ export const handleGacha = async (event) => {
         profile.budget = budget;
         profile.gachaStats = gachaStats;
         const finalProfile = await mapCosmeticAssets(profile);
-        const invPage = await fetchFirstPage(process.env.INVENTORY_TABLE, userId, 20);
+        // Fetch inventory per-type (giống /sync-all)
+        const types = (process.env.INVENTORY_TYPES).split(',');
+        const inventoryResult = {};
+        await Promise.all(types.map(type =>
+            fetchInventoryPage(userId, null, type).then(inv => {
+                inventoryResult[type] = {
+                    items: inv.items,
+                    lastEvaluatedKey: inv.lastEvaluatedKey
+                };
+            })
+        ));
         const historyPage = await fetchFirstPage(process.env.GACHAHISTORY_TABLE, userId, 30);
 
         return successResponse({
             success: true,
-            pulledItems: clientReturnItems, // Danh sách riêng cho UI Gacha
+            pulledItems: clientReturnItems,
             profile: finalProfile,
-            inventory: invPage.items,
-            inventoryLastKey: invPage.lastKey,
+            inventory: inventoryResult,
             gachaHistory: historyPage.items,
             gachaHistoryLastKey: historyPage.lastKey
         });

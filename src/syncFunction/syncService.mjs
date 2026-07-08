@@ -3,7 +3,6 @@ import { docClient } from "../database.mjs";
 import { successResponse, errorResponse } from "../response.mjs";
 import { getCachedQuests, getCachedMasterData } from "../cacheHelper.mjs";
 
-//bibilabu
 const getUserId = (event) => {
     const auth = event.requestContext?.authorizer;
     return auth?.jwt?.claims?.sub || auth?.claims?.sub || null;
@@ -82,14 +81,22 @@ const mapCosmeticAssets = async (profile) => {
     };
 };
 
-const fetchInventoryPage = async (userId, exclusiveStartKey = null) => {
+const fetchInventoryPage = async (userId, exclusiveStartKey = null, itemType = null) => {
     const params = {
         TableName: process.env.INVENTORY_TABLE,
-        KeyConditionExpression: "PK = :uid",
-        ExpressionAttributeValues: { ":uid": userId },
-        Limit: 20,
+        Limit: 10,
         ScanIndexForward: false,
     };
+    if (itemType) {
+        params.IndexName = "ItemTypeIndex";
+        params.KeyConditionExpression = "PK = :uid AND itemType = :type";
+        params.ExpressionAttributeValues = {
+            ":uid": userId,
+            ":type": itemType
+        };
+    } else {
+        throw new Error("Invalid request: itemType is required for inventory synchronization.");
+    }
     if (exclusiveStartKey) params.ExclusiveStartKey = exclusiveStartKey;
 
     const result = await docClient.send(new QueryCommand(params));
@@ -265,12 +272,18 @@ const handleSyncAll = async (event) => {
         }
         const promises = [];
         if (getInventory) {
-            promises.push(
-                fetchInventoryPage(userId).then(inv => {
-                    response.inventory = inv.items;
-                    response.inventoryLastKey = inv.lastEvaluatedKey;
-                })
-            );
+            const types = (process.env.INVENTORY_TYPES).split(',');
+            response.inventory = {};
+            for (const type of types) {
+                promises.push(
+                    fetchInventoryPage(userId, null, type).then(inv => {
+                        response.inventory[type] = {
+                            items: inv.items,
+                            lastEvaluatedKey: inv.lastEvaluatedKey
+                        };
+                    })
+                );
+            }
         }
         if (getGachaHistory) {
             promises.push(
@@ -324,12 +337,14 @@ const handleSyncInventory = async (event) => {
     if (!userId) return errorResponse(401, "Unauthorized");
 
     try {
+        const itemType = event.queryStringParameters?.itemType;
+        if (!itemType) return errorResponse(400, "Thiếu itemType");
         let exclusiveStartKey = null;
         const lastKeyStr = event.queryStringParameters?.lastKey;
         if (lastKeyStr) {
             exclusiveStartKey = JSON.parse(decodeURIComponent(lastKeyStr));
         }
-        const inv = await fetchInventoryPage(userId, exclusiveStartKey);
+        const inv = await fetchInventoryPage(userId, exclusiveStartKey, itemType);
         return successResponse({ inventory: inv.items, lastEvaluatedKey: inv.lastEvaluatedKey });
     } catch (err) {
         console.error("Lỗi syncInventory:", err);
@@ -420,5 +435,6 @@ export {
     handleSyncGachaHistory,
     handleSyncSocial,
     handleGetMasterData,
-    mapCosmeticAssets
+    mapCosmeticAssets,
+    fetchInventoryPage
 };
