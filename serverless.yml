@@ -53,6 +53,7 @@ provider:
             - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:ITEMDATA_TABLE}"
             - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:INVENTORY_TABLE}"
             - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:GACHAHISTORY_TABLE}"
+            - "arn:aws:dynamodb:${self:provider.region}:*:table/${env:INVENTORY_TABLE}"
         # ── DynamoDB Streams (streamIndexer Lambda) ───────
         - Effect: Allow
           Action:

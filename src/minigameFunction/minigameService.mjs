@@ -196,6 +196,7 @@ const handleStartSession = async (event) => {
             startTime: now,
             sanityCost: sanityCost,
             status: "PENDING",
+            checkCount: 5,
             seed: seed,
             solutionGrid: solutionGrid,
 
@@ -238,6 +239,7 @@ const handleStartSession = async (event) => {
             sessionData: {
                 sessionId: sessionItem.SK,
                 seed: sessionItem.seed,
+                checkCount: sessionItem.checkCount,
                 puzzleGrid: puzzleGrid, // 👈 GỬI ĐỀ BÀI XUỐNG CHO CLIENT RENDER 
                 status: sessionItem.status
             },
