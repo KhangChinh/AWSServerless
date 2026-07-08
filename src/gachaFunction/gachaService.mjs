@@ -219,21 +219,34 @@ export const handleGacha = async (event) => {
 
         await Promise.all(writePromises);
 
-        // 8. Lấy dữ liệu mới nhất (Trang 1) trả về cho IngestServerData
+        // 8. Lấy dữ liệu mới nhất (Trang 1) của những itemType thực sự thay đổi trả về cho IngestServerData
         profile.budget = budget;
         profile.gachaStats = gachaStats;
         const finalProfile = await mapCosmeticAssets(profile);
-        // Fetch inventory per-type (giống /sync-all)
-        const types = (process.env.INVENTORY_TYPES).split(',');
+
+        // Chỉ tìm các itemType có vật phẩm mới được thêm vào túi
+        const updatedTypes = new Set();
+        pulledResults.forEach((pull, index) => {
+            if (pull.type === 'item') {
+                const { item } = pull;
+                const isOwned = alreadyOwned.has(item.SK) || (index > 0 && pulledResults.slice(0, index).some(p => p.type === 'item' && p.item.SK === item.SK));
+                if (!isOwned && item.itemType) {
+                    updatedTypes.add(item.itemType);
+                }
+            }
+        });
+
         const inventoryResult = {};
-        await Promise.all(types.map(type =>
-            fetchInventoryPage(userId, null, type).then(inv => {
-                inventoryResult[type] = {
-                    items: inv.items,
-                    lastEvaluatedKey: inv.lastEvaluatedKey
-                };
-            })
-        ));
+        if (updatedTypes.size > 0) {
+            await Promise.all(Array.from(updatedTypes).map(type =>
+                fetchInventoryPage(userId, null, type).then(inv => {
+                    inventoryResult[type] = {
+                        items: inv.items,
+                        lastEvaluatedKey: inv.lastEvaluatedKey
+                    };
+                })
+            ));
+        }
         const historyPage = await fetchFirstPage(process.env.GACHAHISTORY_TABLE, userId, 30);
 
         return successResponse({
