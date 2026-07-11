@@ -1,0 +1,18 @@
+/* Background styles for Study Float */
+.os-desktop {
+  --desktop-user-background: url("../bg_study_float.jpg") center / cover no-repeat;
+}
+
+/* Enable floating icons specifically for this background item */
+.desktop-line-bg.bg-bg_study_float .study-float-icons {
+  display: block !important;
+}
+
+/* Hide default aurora fields, holo-orbits, holo-panels, grids, and scan-lines for this item */
+.desktop-line-bg.bg-bg_study_float .aurora-field,
+.desktop-line-bg.bg-bg_study_float .holo-orbit,
+.desktop-line-bg.bg-bg_study_float .holo-panel,
+.desktop-line-bg.bg-bg_study_float .line-grid,
+.desktop-line-bg.bg-bg_study_float .line-scan {
+  display: none !important;
+}

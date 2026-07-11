@@ -1,0 +1,78 @@
+Hãy tạo hệ thống item theo đúng quy chuẩn sau:
+
+1. Mỗi item phải có 1 folder riêng.
+- Tên folder phải trùng với giá trị của trường "SK" trong data.json.
+
+Ví dụ:
+SK = "default"
+
+Cấu trúc:
+
+default/
+├── assets/
+├── default.png
+└── data.json
+
+2. Trong thư mục assets:
+- Có thể chứa bao nhiêu file tùy ý.
+- Các file chính phải đặt tên theo đúng tên item (SK).
+
+Ví dụ với SK = "default":
+
+assets/
+└── default.css
+
+Ví dụ với SK = "gold_frame":
+
+assets/
+├── gold_frame.css
+└── gold_frame.png
+
+3. File data.json:
+- Tên file luôn là "data.json".
+- Không được đổi tên.
+- Không được thêm hoặc xóa key.
+- Chỉ được thay đổi giá trị bên trong.
+
+Mẫu bắt buộc:
+
+{
+  "PK": "item",
+  "SK": "",
+  "itemType": "",
+  "name": "",
+  "rarity": "",
+  "currencyType": null,
+  "price": 0,
+  "collectorFrom": "",
+  "isLimited": false
+}
+
+4. Quy tắc:
+- Tên folder = SK.
+- Tên file asset chính = SK.
+- data.json luôn giữ nguyên cấu trúc.
+- Mọi item mới phải tuân thủ đúng format này.
+- Nếu thiếu file hoặc sai tên thì xem như item không hợp lệ.
+
+5. Mục tiêu:
+- Hệ thống có thể tự động quét thư mục item.
+- Đọc metadata từ data.json.
+- Tự động tải asset từ thư mục assets dựa trên giá trị SK.
+- Không cần cấu hình thủ công cho từng item.
+
+Khi tạo item mới, hãy trả về:
+- Cấu trúc thư mục.
+- Nội dung data.json.
+- Danh sách file trong assets.
+
+thông tin của item:
+- PK: "item"
+- SK: "tên item"
+- itemType: "background"
+- name: "tên item"
+- rarity: "4-5"
+- currencyType: "eCoin" hoặc null
+- price: số tiền hoặc null
+- collectorFrom: "gacha" hoặc "eCoinShop"
+- isLimited: true hoặc false

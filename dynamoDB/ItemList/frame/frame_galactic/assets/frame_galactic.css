@@ -1,0 +1,2 @@
+﻿.rank-frame-galactic { --rf-light: #c7d2fe; --rf-mid: #6366f1; --rf-dark: #1e1b4b; --rf-glow: rgba(99, 102, 241, 0.65); --rf-gem: #67e8f9; }
+.rank-frame-galactic .rf-crown, .rank-frame-galactic .rf-wing { animation: rf-glow-pulse 3s ease-in-out infinite; }

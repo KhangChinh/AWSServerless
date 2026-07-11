@@ -1,0 +1,11 @@
+{
+  "PK": "item",
+  "SK": "bg_cosmic_abyss",
+  "itemType": "background",
+  "name": "Cosmic Abyss",
+  "rarity": 4,
+  "currencyType": null,
+  "price": null,
+  "collectorFrom": "gacha",
+  "isLimited": false
+}

@@ -1,0 +1,8 @@
+﻿.rank-frame-diamond {
+  --rf-light: #ffffff;
+  --rf-mid: #7dd3fc;
+  --rf-dark: #2563eb;
+  --rf-glow: rgba(56, 189, 248, 0.7);
+  --rf-gem: #cffafe;
+}
+.rank-frame-diamond .rf-aura, .rank-frame-diamond .rf-spark { animation: rf-glow-pulse 1.7s ease-in-out infinite; }

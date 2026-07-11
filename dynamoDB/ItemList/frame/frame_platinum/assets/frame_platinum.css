@@ -1,0 +1,8 @@
+﻿.rank-frame-platinum {
+  --rf-light: #ecfeff;
+  --rf-mid: #67e8f9;
+  --rf-dark: #0e7490;
+  --rf-glow: rgba(103, 232, 249, 0.58);
+  --rf-gem: #ffffff;
+}
+.rank-frame-platinum .rf-aura { animation: rf-glow-pulse 2.4s ease-in-out infinite; }

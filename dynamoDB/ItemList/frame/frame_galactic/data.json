@@ -1,0 +1,11 @@
+﻿{
+    "collectorFrom":  "gacha",
+    "price":  null,
+    "SK":  "frame_galactic",
+    "itemType":  "frame",
+    "PK":  "item",
+    "isLimited":  true,
+    "currencyType":  null,
+    "name":  "Galactic Horizon",
+    "rarity":  5
+}

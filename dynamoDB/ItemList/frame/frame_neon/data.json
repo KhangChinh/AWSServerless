@@ -1,0 +1,11 @@
+﻿{
+    "collectorFrom":  "eCoinShop",
+    "price":  1200,
+    "SK":  "frame_neon",
+    "itemType":  "frame",
+    "PK":  "item",
+    "isLimited":  false,
+    "currencyType":  "eCoin",
+    "name":  "Neon Pulse",
+    "rarity":  4
+}
