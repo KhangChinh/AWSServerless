@@ -56,5 +56,5 @@ leaderboardWorker:
   handler: src/minigameFunction/minigameService.handleLeaderboardWorker
   events:
     - schedule:
+        description: Trigger update leaderboard moi 10 phut
         rate: rate(10 minutes)
-        enabled: true
