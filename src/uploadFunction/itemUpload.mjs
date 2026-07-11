@@ -33,7 +33,16 @@ const processZip = async (event) => {
         const jsonEntry = zipEntries.find(e => e.entryName === 'data.json');
         if (!jsonEntry) throw new Error("Thiếu data.json trong file ZIP");
 
-        let itemData = JSON.parse(jsonEntry.getData().toString('utf8'));
+        // Chuyển buffer thành chuỗi
+        let jsonString = jsonEntry.getData().toString('utf8');
+
+        // Loại bỏ ký tự BOM ( \uFEFF ) nếu có ở đầu chuỗi
+        if (jsonString.charCodeAt(0) === 0xFEFF) {
+            jsonString = jsonString.slice(1);
+        }
+
+        // Parse dữ liệu an toàn
+        let itemData = JSON.parse(jsonString);
         const { itemType, SK: itemId } = itemData;
         itemData.assets = {};
 
