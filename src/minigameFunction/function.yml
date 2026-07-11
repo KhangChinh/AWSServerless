@@ -16,11 +16,20 @@ startGameSession:
         authorizer:
           name: myCognitoAuth
 
-endMinigame:
-  handler: src/minigameFunction/minigameService.handleEndGame
+checkSudokuBoard:
+  handler: src/minigameFunction/minigameService.handleCheckSudokuBoard
   events:
     - httpApi:
-        path: /minigame/end
+        path: /minigame/sudokulevels/check
+        method: post
+        authorizer:
+          name: myCognitoAuth
+
+endSudokuSession:
+  handler: src/minigameFunction/minigameService.handleEndSudokuSession
+  events:
+    - httpApi:
+        path: /minigame/sudokulevels/end-session
         method: post
         authorizer:
           name: myCognitoAuth
