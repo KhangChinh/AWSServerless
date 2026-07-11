@@ -1,11 +1,11 @@
 ﻿{
-    "collectorFrom":  "eCoinShop",
-    "price":  2500,
-    "SK":  "frame_gold",
-    "itemType":  "frame",
-    "PK":  "item",
-    "isLimited":  false,
-    "currencyType":  "eCoin",
-    "name":  "Golden Royalty",
-    "rarity":  4
+    "collectorFrom": "eCoinShop",
+    "price": 2500,
+    "SK": "frame_gold",
+    "itemType": "frame",
+    "PK": "item",
+    "isLimited": false,
+    "currencyType": "eCoin",
+    "name": "Golden Royalty",
+    "rarity": 4
 }

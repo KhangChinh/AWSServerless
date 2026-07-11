@@ -1,11 +1,11 @@
 ﻿{
-    "collectorFrom":  "eCoinShop",
-    "price":  1800,
-    "SK":  "frame_platinum",
-    "itemType":  "frame",
-    "PK":  "item",
-    "isLimited":  false,
-    "currencyType":  "eCoin",
-    "name":  "Platinum Crest",
-    "rarity":  4
+    "collectorFrom": "eCoinShop",
+    "price": 1800,
+    "SK": "frame_platinum",
+    "itemType": "frame",
+    "PK": "item",
+    "isLimited": false,
+    "currencyType": "eCoin",
+    "name": "Platinum Crest",
+    "rarity": 4
 }
