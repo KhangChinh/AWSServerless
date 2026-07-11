@@ -1,7 +1,8 @@
 import { PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "../database.mjs";
 import { getCachedMasterData } from "../cacheHelper.mjs";
-import { successResponse, errorResponse } from "../response.mjs";
+import { successResponse } from "../response.mjs";
+import { syncedErrorResponse } from "../errorSync.mjs";
 import { fetchInventoryPage } from "../syncFunction/syncService.mjs";
 
 const getUserId = (event) => {
@@ -69,7 +70,7 @@ const handleRefresheCoinShop = async (event) => {
 const handleGeteCoinShop = async (event) => {
     try {
         const userId = getUserId(event);
-        if (!userId) return errorResponse(401, "Unauthorized");
+        if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
         const shopResult = await docClient.send(
             new GetCommand({
                 TableName: process.env.ITEMDATA_TABLE,
@@ -124,17 +125,17 @@ const handleGeteCoinShop = async (event) => {
 
     } catch (err) {
         console.error("Lỗi khi lấy dữ liệu eCoin Shop:", err);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
 
 const handleBuyeCoinItem = async (event) => {
     try {
         const userId = getUserId(event);
-        if (!userId) return errorResponse(401, "Unauthorized");
+        if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
         const body = JSON.parse(event.body || "{}");
         const { itemId } = body;
-        if (!itemId) return errorResponse(400, "Thiếu itemId cần mua.");
+        if (!itemId) return await syncedErrorResponse(getUserId(event), 400, "Thiếu itemId cần mua.");
         // 1. Kéo dữ liệu Shop và Profile cùng lúc để kiểm tra
         const [shopResult, profileResult] = await Promise.all([
             docClient.send(new GetCommand({
@@ -148,19 +149,19 @@ const handleBuyeCoinItem = async (event) => {
         ]);
         const shopData = shopResult.Item;
         const profile = profileResult.Item;
-        if (!profile) return errorResponse(404, "Không tìm thấy người dùng.");
+        if (!profile) return await syncedErrorResponse(getUserId(event), 404, "Không tìm thấy người dùng.");
         if (!shopData || !shopData.activeItems || shopData.activeItems.length === 0) {
-            return errorResponse(400, "Shop hiện đang trống hoặc đã hết hạn.");
+            return await syncedErrorResponse(getUserId(event), 400, "Shop hiện đang trống hoặc đã hết hạn.");
         }
         // 2. Tìm item người dùng muốn mua trong Shop
         const itemToBuy = shopData.activeItems.find(item => item.itemId === itemId);
         if (!itemToBuy) {
-            return errorResponse(400, "Vật phẩm không tồn tại trong cửa hàng hiện tại.");
+            return await syncedErrorResponse(getUserId(event), 400, "Vật phẩm không tồn tại trong cửa hàng hiện tại.");
         }
         // Kiểm tra số dư eCoin (Đảm bảo rơi vào fallback = 0 nếu user chưa từng có eCoin)
         const currentECoin = profile.budget?.eCoin || 0;
         if (currentECoin < itemToBuy.price) {
-            return errorResponse(400, "Không đủ eCoin để mua vật phẩm này.");
+            return await syncedErrorResponse(getUserId(event), 400, "Không đủ eCoin để mua vật phẩm này.");
         }
         // 3. Kéo túi đồ để check xem user đã sở hữu những item nào trong shop
         const keysToFetch = shopData.activeItems.map(item => ({
@@ -179,7 +180,7 @@ const handleBuyeCoinItem = async (event) => {
         const ownedItemIds = new Set(inventoryItems.map(inv => inv.SK));
         // Kiểm tra xem đã sở hữu món đồ định mua chưa
         if (ownedItemIds.has(itemId)) {
-            return errorResponse(400, "Bạn đã sở hữu vật phẩm này rồi.");
+            return await syncedErrorResponse(getUserId(event), 400, "Bạn đã sở hữu vật phẩm này rồi.");
         }
         // 4. THỰC THI TRANSACTION: Trừ tiền và Thêm item vào Inventory cùng 1 lúc
         const now = Date.now(); // Lấy theo milliseconds chuẩn của gachaService
@@ -255,9 +256,9 @@ const handleBuyeCoinItem = async (event) => {
     } catch (err) {
         console.error("Lỗi khi mua vật phẩm eCoin:", err);
         if (err.name === 'TransactionCanceledException') {
-            return errorResponse(400, "Giao dịch không hợp lệ hoặc số dư không đủ.");
+            return await syncedErrorResponse(getUserId(event), 400, "Giao dịch không hợp lệ hoặc số dư không đủ.");
         }
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
 

@@ -1,6 +1,7 @@
 import { PutCommand, GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "../database.mjs";
-import { successResponse, errorResponse } from "../response.mjs";
+import { successResponse } from "../response.mjs";
+import { syncedErrorResponse } from "../errorSync.mjs";
 import { updateQuestProgress } from "../questFunction/questService.mjs";
 
 // ═══════════════════════════════════════════
@@ -12,7 +13,7 @@ const handleStartSession = async (event) => {
     const userId = authorizer?.jwt?.claims?.sub || authorizer?.claims?.sub;
 
     if (!userId) {
-        return errorResponse(401, "Unauthorized");
+        return await syncedErrorResponse(userId, 401, "Unauthorized");
     }
 
     try {
@@ -20,11 +21,11 @@ const handleStartSession = async (event) => {
         const { mode, durationMinutes } = body;
 
         if (!mode || !["casual", "rank"].includes(mode)) {
-            return errorResponse(400, "mode phải là 'casual' hoặc 'rank'");
+            return await syncedErrorResponse(userId, 400, "mode phải là 'casual' hoặc 'rank'");
         }
 
         if (!durationMinutes || typeof durationMinutes !== "number" || durationMinutes <= 0) {
-            return errorResponse(400, "durationMinutes phải là số dương");
+            return await syncedErrorResponse(userId, 400, "durationMinutes phải là số dương");
         }
 
         const now = Math.floor(Date.now() / 1000);
@@ -51,7 +52,7 @@ const handleStartSession = async (event) => {
         return successResponse({ sessionId });
     } catch (error) {
         console.error("Lỗi tạo session:", error);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(userId, 500, "Lỗi máy chủ nội bộ");
     }
 };
 
@@ -65,7 +66,7 @@ const handleRecordStrike = async (event) => {
     const userId = authorizer?.jwt?.claims?.sub || authorizer?.claims?.sub;
 
     if (!userId) {
-        return errorResponse(401, "Unauthorized");
+        return await syncedErrorResponse(userId, 401, "Unauthorized");
     }
 
     try {
@@ -73,7 +74,7 @@ const handleRecordStrike = async (event) => {
         const { sessionId } = body;
 
         if (!sessionId || typeof sessionId !== "string") {
-            return errorResponse(400, "sessionId là bắt buộc và phải là chuỗi");
+            return await syncedErrorResponse(userId, 400, "sessionId là bắt buộc và phải là chuỗi");
         }
 
         // Lấy session hiện tại
@@ -83,11 +84,11 @@ const handleRecordStrike = async (event) => {
         }));
 
         if (!getResult.Item) {
-            return errorResponse(404, "Không tìm thấy session");
+            return await syncedErrorResponse(userId, 404, "Không tìm thấy session");
         }
 
         if (getResult.Item.status !== "PENDING") {
-            return errorResponse(400, "Session đã kết thúc");
+            return await syncedErrorResponse(userId, 400, "Session đã kết thúc");
         }
 
         const newCount = (getResult.Item.strikeCount || 0) + 1;
@@ -121,7 +122,7 @@ const handleRecordStrike = async (event) => {
         return successResponse({ strikeCount: newCount, sessionEnded: false });
     } catch (error) {
         console.error("Lỗi ghi strike:", error);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(userId, 500, "Lỗi máy chủ nội bộ");
     }
 };
 
@@ -138,7 +139,7 @@ const handleEndSession = async (event) => {
     const userId = authorizer?.jwt?.claims?.sub || authorizer?.claims?.sub;
 
     if (!userId) {
-        return errorResponse(401, "Unauthorized");
+        return await syncedErrorResponse(userId, 401, "Unauthorized");
     }
 
     try {
@@ -146,7 +147,7 @@ const handleEndSession = async (event) => {
         const { sessionId } = body;
 
         if (!sessionId || typeof sessionId !== "string") {
-            return errorResponse(400, "sessionId là bắt buộc và phải là chuỗi");
+            return await syncedErrorResponse(userId, 400, "sessionId là bắt buộc và phải là chuỗi");
         }
 
         // Lấy session từ DB
@@ -156,7 +157,7 @@ const handleEndSession = async (event) => {
         }));
 
         if (!getResult.Item) {
-            return errorResponse(404, "Không tìm thấy session");
+            return await syncedErrorResponse(userId, 404, "Không tìm thấy session");
         }
 
         if (getResult.Item.status !== "PENDING") {
@@ -277,7 +278,7 @@ const handleEndSession = async (event) => {
         });
     } catch (error) {
         console.error("Lỗi kết thúc session:", error);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(userId, 500, "Lỗi máy chủ nội bộ");
     }
 };
 

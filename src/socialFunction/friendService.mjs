@@ -9,7 +9,8 @@ import {
     TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "../database.mjs";
-import { successResponse, errorResponse } from "../response.mjs";
+import { successResponse } from "../response.mjs";
+import { syncedErrorResponse } from "../errorSync.mjs";
 
 const getUserId = (event) => {
     const auth = event.requestContext?.authorizer;
@@ -23,7 +24,7 @@ const getUserId = (event) => {
 // ═══════════════════════════════════════════════════════
 const handleGetFriends = async (event) => {
     const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
 
     try {
         let exclusiveStartKey = null;
@@ -47,7 +48,7 @@ const handleGetFriends = async (event) => {
         });
     } catch (err) {
         console.error("Lỗi getFriends:", err);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
 
@@ -58,14 +59,14 @@ const handleGetFriends = async (event) => {
 // ═══════════════════════════════════════════════════════
 const handleSendFriendRequest = async (event) => {
     const userId = getUserId(event); // A
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
 
     try {
         const body = JSON.parse(event.body || "{}");
         const { targetUserId } = body; // B
 
-        if (!targetUserId) return errorResponse(400, "targetUserId là bắt buộc");
-        if (targetUserId === userId) return errorResponse(400, "Không thể kết bạn với chính mình");
+        if (!targetUserId) return await syncedErrorResponse(getUserId(event), 400, "targetUserId là bắt buộc");
+        if (targetUserId === userId) return await syncedErrorResponse(getUserId(event), 400, "Không thể kết bạn với chính mình");
 
         // Kiểm tra đã tồn tại chưa
         const existingResult = await docClient.send(
@@ -75,7 +76,7 @@ const handleSendFriendRequest = async (event) => {
             })
         );
         if (existingResult.Item) {
-            return errorResponse(409, "Đã là bạn bè hoặc đã gửi lời mời trước đó");
+            return await syncedErrorResponse(getUserId(event), 409, "Đã là bạn bè hoặc đã gửi lời mời trước đó");
         }
 
         // Chống spam: Giới hạn 50 lời mời đang chờ
@@ -89,7 +90,7 @@ const handleSendFriendRequest = async (event) => {
         };
         const countResult = await docClient.send(new QueryCommand(countParams));
         if (countResult.Count >= 50) {
-            return errorResponse(429, "Bạn có quá nhiều lời mời chưa được phản hồi (tối đa 50).");
+            return await syncedErrorResponse(getUserId(event), 429, "Bạn có quá nhiều lời mời chưa được phản hồi (tối đa 50).");
         }
 
         // Lấy thông tin A và B để lưu vào bản ghi social
@@ -108,7 +109,7 @@ const handleSendFriendRequest = async (event) => {
             ),
         ]);
 
-        if (!profileB.Item) return errorResponse(404, "Không tìm thấy người dùng");
+        if (!profileB.Item) return await syncedErrorResponse(getUserId(event), 404, "Không tìm thấy người dùng");
 
         const now = Date.now();
 
@@ -176,10 +177,10 @@ const handleSendFriendRequest = async (event) => {
         return successResponse({ message: "Đã gửi lời mời kết bạn", updatedAt: now });
     } catch (err) {
         if (err.name === "TransactionCanceledException") {
-            return errorResponse(409, "Lời mời đã tồn tại hoặc điều kiện thay đổi");
+            return await syncedErrorResponse(getUserId(event), 409, "Lời mời đã tồn tại hoặc điều kiện thay đổi");
         }
         console.error("Lỗi sendFriendRequest:", err);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
 
@@ -190,13 +191,13 @@ const handleSendFriendRequest = async (event) => {
 // ═══════════════════════════════════════════════════════
 const handleAcceptFriendRequest = async (event) => {
     const userId = getUserId(event); // B
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
 
     try {
         const body = JSON.parse(event.body || "{}");
         const { targetUserId } = body; // A
 
-        if (!targetUserId) return errorResponse(400, "targetUserId là bắt buộc");
+        if (!targetUserId) return await syncedErrorResponse(getUserId(event), 400, "targetUserId là bắt buộc");
 
         // Kiểm tra bản ghi B→A có đúng là PENDING_IN không
         const check = await docClient.send(
@@ -206,7 +207,7 @@ const handleAcceptFriendRequest = async (event) => {
             })
         );
         if (!check.Item || check.Item.status !== "PENDING_IN") {
-            return errorResponse(400, "Không có lời mời kết bạn hợp lệ");
+            return await syncedErrorResponse(getUserId(event), 400, "Không có lời mời kết bạn hợp lệ");
         }
 
         const now = Date.now();
@@ -258,7 +259,7 @@ const handleAcceptFriendRequest = async (event) => {
         return successResponse({ message: "Đã chấp nhận kết bạn", updatedAt: now });
     } catch (err) {
         console.error("Lỗi acceptFriendRequest:", err);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
 
@@ -269,13 +270,13 @@ const handleAcceptFriendRequest = async (event) => {
 // ═══════════════════════════════════════════════════════
 const handleRemoveFriend = async (event) => {
     const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
 
     try {
         const body = JSON.parse(event.body || "{}");
         const { targetUserId } = body;
 
-        if (!targetUserId) return errorResponse(400, "targetUserId là bắt buộc");
+        if (!targetUserId) return await syncedErrorResponse(getUserId(event), 400, "targetUserId là bắt buộc");
 
         const now = Date.now();
 
@@ -307,7 +308,7 @@ const handleRemoveFriend = async (event) => {
         return successResponse({ message: "Đã xóa/từ chối kết bạn", updatedAt: now });
     } catch (err) {
         console.error("Lỗi removeFriend:", err);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
 

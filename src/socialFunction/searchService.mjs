@@ -2,7 +2,8 @@ import algoliasearch from "algoliasearch";
 import { unmarshall } from "@aws-sdk/util-dynamodb";
 import { GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "../database.mjs";
-import { successResponse, errorResponse } from "../response.mjs";
+import { successResponse } from "../response.mjs";
+import { syncedErrorResponse } from "../errorSync.mjs";
 
 const getUserId = (event) => {
     const auth = event.requestContext?.authorizer;
@@ -22,12 +23,12 @@ const index = algoliaClient.initIndex(process.env.ALGOLIA_USER_INDEX || "users")
 const handleSearchUser = async (event) => {
     console.log("Start Algolia Search!");
     const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
 
     try {
         const q = event.queryStringParameters?.q;
         if (!q || q.trim().length < 2) {
-            return errorResponse(400, "Từ khóa tìm kiếm phải có ít nhất 2 ký tự");
+            return await syncedErrorResponse(getUserId(event), 400, "Từ khóa tìm kiếm phải có ít nhất 2 ký tự");
         }
         const keyword = q.trim();
 
@@ -41,7 +42,7 @@ const handleSearchUser = async (event) => {
         const lastSearch = userProfile.Item?.lastSearchAt || 0;
         if (now - lastSearch < 5000) {
             const wait = Math.ceil((5000 - (now - lastSearch)) / 1000);
-            return errorResponse(429, `Vui lòng đợi ${wait} giây trước khi tìm kiếm tiếp.`);
+            return await syncedErrorResponse(getUserId(event), 429, `Vui lòng đợi ${wait} giây trước khi tìm kiếm tiếp.`);
         }
 
         await docClient.send(new UpdateCommand({
@@ -78,7 +79,7 @@ const handleSearchUser = async (event) => {
         });
     } catch (err) {
         console.error("Lỗi searchUser (Algolia):", err);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
 

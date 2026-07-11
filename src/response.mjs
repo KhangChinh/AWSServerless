@@ -15,8 +15,8 @@ const successResponse = (data = {}) => {
     return buildResponse(200, { success: true, ...data });
 };
 
-const errorResponse = (statusCode, message) => {
-    return buildResponse(statusCode, { success: false, message });
+const errorResponse = (statusCode, message, data = {}) => {
+    return buildResponse(statusCode, { success: false, message, ...data });
 };
 
 export { buildResponse, successResponse, errorResponse };

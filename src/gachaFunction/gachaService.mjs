@@ -1,6 +1,7 @@
 import { GetCommand, PutCommand, BatchGetCommand, UpdateCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "../database.mjs";
-import { successResponse, errorResponse } from "../response.mjs";
+import { successResponse } from "../response.mjs";
+import { syncedErrorResponse } from "../errorSync.mjs";
 import { getCachedMasterData } from "../cacheHelper.mjs";
 import { mapCosmeticAssets, fetchInventoryPage } from "../syncFunction/syncService.mjs";
 
@@ -22,7 +23,7 @@ const fetchFirstPage = async (tableName, userId, limit) => {
 
 export const handleGacha = async (event) => {
     const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
 
     try {
         const body = JSON.parse(event.body || "{}");
@@ -36,7 +37,7 @@ export const handleGacha = async (event) => {
             Key: { PK: userId }
         }));
         const profile = profileRes.Item;
-        if (!profile) return errorResponse(404, "Profile not found");
+        if (!profile) return await syncedErrorResponse(getUserId(event), 404, "Profile not found");
 
         // 2. Kiểm tra & Trừ tài nguyên
         let budget = profile.budget || {};
@@ -49,7 +50,7 @@ export const handleGacha = async (event) => {
                 knowledgePoint -= requiredPoints;
                 knowledgeCore += missingCores;
             } else {
-                return errorResponse(400, "Không đủ Knowledge Core và Knowledge Point.");
+                return await syncedErrorResponse(getUserId(event), 400, "Không đủ Knowledge Core và Knowledge Point.");
             }
         }
         knowledgeCore -= coreCost; // Trừ phí gacha
@@ -260,6 +261,6 @@ export const handleGacha = async (event) => {
 
     } catch (error) {
         console.error("Lỗi Gacha:", error);
-        return errorResponse(500, error.message || "Lỗi xử lý gacha");
+        return await syncedErrorResponse(getUserId(event), 500, error.message || "Lỗi xử lý gacha");
     }
 };

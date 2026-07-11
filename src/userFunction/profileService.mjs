@@ -1,6 +1,7 @@
 import { GetCommand, UpdateCommand, BatchGetCommand, BatchWriteCommand, } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "../database.mjs";
-import { successResponse, errorResponse } from "../response.mjs";
+import { successResponse } from "../response.mjs";
+import { syncedErrorResponse } from "../errorSync.mjs";
 import { refreshDaily } from "../syncFunction/syncService.mjs";
 import { mapCosmeticAssets } from "../syncFunction/syncService.mjs"
 const getUserId = (event) => {
@@ -122,12 +123,12 @@ const handleInitUser = async (event) => {
 
 const handleUpdateProfile = async (event) => {
     const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
     try {
         const body = JSON.parse(event.body || "{}");
         const { name } = body;
         if (!name || typeof name !== "string" || name.trim().length === 0) {
-            return errorResponse(400, "name không hợp lệ");
+            return await syncedErrorResponse(getUserId(event), 400, "name không hợp lệ");
         }
         const now = Date.now();
         const updateResult = await docClient.send(
@@ -152,23 +153,23 @@ const handleUpdateProfile = async (event) => {
         });
     } catch (error) {
         console.error("Lỗi cập nhật profile:", error);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
 
 const handleEquipCosmetics = async (event) => {
     const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
 
     try {
         const body = JSON.parse(event.body || "{}");
         const { backgroundId, frameId, titles } = body;
 
         if (!backgroundId) {
-            return errorResponse(400, "backgroundId là bắt buộc");
+            return await syncedErrorResponse(getUserId(event), 400, "backgroundId là bắt buộc");
         }
         if (titles && titles.length > 3) {
-            return errorResponse(400, "Chỉ được trang bị tối đa 3 danh hiệu");
+            return await syncedErrorResponse(getUserId(event), 400, "Chỉ được trang bị tối đa 3 danh hiệu");
         }
 
         // Xây danh sách các SK cần kiểm tra sở hữu
@@ -199,15 +200,15 @@ const handleEquipCosmetics = async (event) => {
         defaultCosmeticIds.forEach((id) => ownedSet.add(id));
 
         if (!ownedSet.has(backgroundId)) {
-            return errorResponse(403, "Bạn không sở hữu Background này");
+            return await syncedErrorResponse(getUserId(event), 403, "Bạn không sở hữu Background này");
         }
         if (frameId && !ownedSet.has(frameId)) {
-            return errorResponse(403, "Bạn không sở hữu Frame này");
+            return await syncedErrorResponse(getUserId(event), 403, "Bạn không sở hữu Frame này");
         }
         if (titles) {
             for (const t of titles) {
                 if (!ownedSet.has(t)) {
-                    return errorResponse(403, `Bạn không sở hữu danh hiệu: ${t}`);
+                    return await syncedErrorResponse(getUserId(event), 403, `Bạn không sở hữu danh hiệu: ${t}`);
                 }
             }
         }
@@ -246,7 +247,7 @@ const handleEquipCosmetics = async (event) => {
         });
     } catch (error) {
         console.error("Lỗi trang bị đồ:", error);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
 

@@ -1,6 +1,7 @@
 import { GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "../database.mjs";
-import { successResponse, errorResponse } from "../response.mjs";
+import { successResponse } from "../response.mjs";
+import { syncedErrorResponse } from "../errorSync.mjs";
 import { mapCosmeticAssets } from "../syncFunction/syncService.mjs";
 
 const getUserId = (event) => {
@@ -10,14 +11,14 @@ const getUserId = (event) => {
 
 export const handleConvertKPointToKCore = async (event) => {
     const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
 
     try {
         const body = JSON.parse(event.body || "{}");
         const targetCores = parseInt(body.targetCores, 10); // Số knowledgeCore muốn đổi
 
         if (!targetCores || targetCores <= 0) {
-            return errorResponse(400, "Số lượng quy đổi không hợp lệ.");
+            return await syncedErrorResponse(getUserId(event), 400, "Số lượng quy đổi không hợp lệ.");
         }
 
         const requiredPoints = targetCores * 150;
@@ -29,14 +30,14 @@ export const handleConvertKPointToKCore = async (event) => {
         }));
 
         const profile = profileRes.Item;
-        if (!profile) return errorResponse(404, "Không tìm thấy profile");
+        if (!profile) return await syncedErrorResponse(getUserId(event), 404, "Không tìm thấy profile");
 
         // 2. Kiểm tra số dư
         let budget = profile.budget || {};
         let { knowledgeCore = 0, knowledgePoint = 0 } = budget;
 
         if (knowledgePoint < requiredPoints) {
-            return errorResponse(400, `Không đủ tài nguyên. Cần ${requiredPoints} Knowledge Point.`);
+            return await syncedErrorResponse(getUserId(event), 400, `Không đủ tài nguyên. Cần ${requiredPoints} Knowledge Point.`);
         }
 
         // 3. Tính toán
@@ -62,6 +63,6 @@ export const handleConvertKPointToKCore = async (event) => {
         });
     } catch (error) {
         console.error("Lỗi Convert:", error);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };

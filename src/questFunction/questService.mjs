@@ -4,7 +4,8 @@ import {
     TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "../database.mjs";
-import { successResponse, errorResponse } from "../response.mjs";
+import { successResponse } from "../response.mjs";
+import { syncedErrorResponse } from "../errorSync.mjs";
 import { getOrRefreshDaily } from "../syncFunction/syncService.mjs";
 
 const getUserId = (event) => {
@@ -91,7 +92,7 @@ const updateQuestProgress = async (userId, type, amount = 1) => {
 // ═══════════════════════════════════════════════════════
 const handleGetDaily = async (event) => {
     const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
 
     try {
         // Lấy profile để check streak
@@ -102,13 +103,13 @@ const handleGetDaily = async (event) => {
             })
         );
         const profile = profileResult.Item;
-        if (!profile) return errorResponse(404, "Không tìm thấy profile");
+        if (!profile) return await syncedErrorResponse(getUserId(event), 404, "Không tìm thấy profile");
 
         const { daily } = await getOrRefreshDaily(userId, profile);
         return successResponse({ daily });
     } catch (err) {
         console.error("Lỗi getDaily:", err);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
 
@@ -119,12 +120,12 @@ const handleGetDaily = async (event) => {
 // ═══════════════════════════════════════════════════════
 const handleClaimQuest = async (event) => {
     const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
 
     try {
         const body = JSON.parse(event.body || "{}");
         const { questKey } = body;
-        if (!questKey) return errorResponse(400, "questKey là bắt buộc");
+        if (!questKey) return await syncedErrorResponse(getUserId(event), 400, "questKey là bắt buộc");
 
         // Lấy daily
         const dailyResult = await docClient.send(
@@ -134,18 +135,18 @@ const handleClaimQuest = async (event) => {
             })
         );
         const daily = dailyResult.Item;
-        if (!daily) return errorResponse(404, "Không tìm thấy daily");
+        if (!daily) return await syncedErrorResponse(getUserId(event), 404, "Không tìm thấy daily");
 
         const now = Math.floor(Date.now() / 1000);
         if (!daily.expiresAt || daily.expiresAt < now) {
-            return errorResponse(410, "Daily đã hết hạn, vui lòng refresh");
+            return await syncedErrorResponse(getUserId(event), 410, "Daily đã hết hạn, vui lòng refresh");
         }
 
         // Lấy thông tin quest
         const quest = daily.quests?.[questKey];
-        if (!quest) return errorResponse(404, "Không tìm thấy quest");
-        if (!quest.isCompleted) return errorResponse(400, "Quest chưa hoàn thành");
-        if (quest.isClaimed) return errorResponse(409, "Đã nhận thưởng rồi");
+        if (!quest) return await syncedErrorResponse(getUserId(event), 404, "Không tìm thấy quest");
+        if (!quest.isCompleted) return await syncedErrorResponse(getUserId(event), 400, "Quest chưa hoàn thành");
+        if (quest.isClaimed) return await syncedErrorResponse(getUserId(event), 409, "Đã nhận thưởng rồi");
 
         const reward = quest.knowledgePoint || 0;
         const nowMs = Date.now();
@@ -205,10 +206,10 @@ const handleClaimQuest = async (event) => {
         });
     } catch (err) {
         if (err.name === "TransactionCanceledException") {
-            return errorResponse(409, "Giao dịch bị từ chối: quest đã được nhận hoặc điều kiện thay đổi");
+            return await syncedErrorResponse(getUserId(event), 409, "Giao dịch bị từ chối: quest đã được nhận hoặc điều kiện thay đổi");
         }
         console.error("Lỗi claimQuest:", err);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
 
@@ -218,14 +219,14 @@ const handleClaimQuest = async (event) => {
 // ═══════════════════════════════════════════════════════
 const handleQuizSubmit = async (event) => {
     const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
 
     try {
         const body = JSON.parse(event.body || "{}");
         const { correctAnswersCount, totalQuestions } = body;
 
         if (typeof correctAnswersCount !== "number" || typeof totalQuestions !== "number") {
-            return errorResponse(400, "correctAnswersCount và totalQuestions phải là số");
+            return await syncedErrorResponse(getUserId(event), 400, "correctAnswersCount và totalQuestions phải là số");
         }
 
         const reward = correctAnswersCount * 10;
@@ -275,7 +276,7 @@ const handleQuizSubmit = async (event) => {
 
     } catch (err) {
         console.error("Lỗi handleQuizSubmit:", err);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
 

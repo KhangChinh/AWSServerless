@@ -2,7 +2,8 @@ import { S3Client } from "@aws-sdk/client-s3";
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
 import { GetCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "../database.mjs";
-import { successResponse, errorResponse } from "../response.mjs";
+import { successResponse } from "../response.mjs";
+import { syncedErrorResponse } from "../errorSync.mjs";
 
 const s3 = new S3Client({});
 
@@ -29,7 +30,7 @@ const AVATAR_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 // ═══════════════════════════════════════════════════════
 const handlePresignAvatar = async (event) => {
     const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
 
     try {
         const profileResult = await docClient.send(
@@ -39,14 +40,14 @@ const handlePresignAvatar = async (event) => {
             })
         );
         const profile = profileResult.Item;
-        if (!profile) return errorResponse(404, "Không tìm thấy profile");
+        if (!profile) return await syncedErrorResponse(getUserId(event), 404, "Không tìm thấy profile");
 
         const now = Date.now();
         const lastUpdate = profile.avatarUpdatedAt || 0;
 
         if (now - lastUpdate < AVATAR_COOLDOWN_MS) {
             const remainMs = AVATAR_COOLDOWN_MS - (now - lastUpdate);
-            return errorResponse(429, "Chưa đủ thời gian để đổi ảnh đại diện", {
+            return await syncedErrorResponse(getUserId(event), 429, "Chưa đủ thời gian để đổi ảnh đại diện", {
                 remainMs,
                 availableAt: lastUpdate + AVATAR_COOLDOWN_MS,
             });
@@ -75,7 +76,7 @@ const handlePresignAvatar = async (event) => {
         });
     } catch (err) {
         console.error("Lỗi presignAvatar:", err);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
 
@@ -87,7 +88,7 @@ const handlePresignAvatar = async (event) => {
 // ═══════════════════════════════════════════════════════
 const handleConfirmAvatar = async (event) => {
     const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
 
     try {
         const now = Date.now();
@@ -103,11 +104,11 @@ const handleConfirmAvatar = async (event) => {
             })
         );
         const profile = profileResult.Item;
-        if (!profile) return errorResponse(404, "Không tìm thấy profile");
+        if (!profile) return await syncedErrorResponse(getUserId(event), 404, "Không tìm thấy profile");
 
         const lastUpdate = profile.avatarUpdatedAt || 0;
         if (now - lastUpdate < AVATAR_COOLDOWN_MS) {
-            return errorResponse(429, "Cooldown chưa hết, không thể xác nhận đổi ảnh");
+            return await syncedErrorResponse(getUserId(event), 429, "Cooldown chưa hết, không thể xác nhận đổi ảnh");
         }
 
         // Ghi path tương đối vào DB (frontend tự ghép CDN domain để load)
@@ -131,7 +132,7 @@ const handleConfirmAvatar = async (event) => {
         });
     } catch (err) {
         console.error("Lỗi confirmAvatar:", err);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
 

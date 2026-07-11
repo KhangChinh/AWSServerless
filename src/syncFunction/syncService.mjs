@@ -1,6 +1,7 @@
 import { GetCommand, PutCommand, QueryCommand, UpdateCommand, BatchGetCommand, } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "../database.mjs";
-import { successResponse, errorResponse } from "../response.mjs";
+import { successResponse } from "../response.mjs";
+import { syncedErrorResponse } from "../errorSync.mjs";
 import { getCachedQuests, getCachedMasterData } from "../cacheHelper.mjs";
 
 const getUserId = (event) => {
@@ -250,7 +251,7 @@ const getOrRefreshDaily = async (userId, profile) => {
 
 const handleSyncAll = async (event) => {
     const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
     try {
         const body = JSON.parse(event.body || "{}");
         const {
@@ -262,7 +263,7 @@ const handleSyncAll = async (event) => {
         } = body;
         const response = { success: true };
         const profile = await fetchProfile(userId);
-        if (!profile) return errorResponse(404, "Không tìm thấy profile");
+        if (!profile) return await syncedErrorResponse(getUserId(event), 404, "Không tìm thấy profile");
         if (getProfile) {
             response.profile = await mapCosmeticAssets(profile);
         }
@@ -307,7 +308,7 @@ const handleSyncAll = async (event) => {
         return successResponse(response);
     } catch (err) {
         console.error("Lỗi syncAll:", err);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
 
@@ -316,15 +317,15 @@ const handleSyncAll = async (event) => {
 // ───────────────────────────────────────────────────────
 const handleSyncProfile = async (event) => {
     const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
     try {
         const profile = await fetchProfile(userId);
-        if (!profile) return errorResponse(404, "Không tìm thấy profile");
+        if (!profile) return await syncedErrorResponse(getUserId(event), 404, "Không tìm thấy profile");
         const profileWithAssets = await mapCosmeticAssets(profile);
         return successResponse({ profile: profileWithAssets });
     } catch (err) {
         console.error("Lỗi syncProfile:", err);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
 
@@ -334,11 +335,11 @@ const handleSyncProfile = async (event) => {
 // ───────────────────────────────────────────────────────
 const handleSyncInventory = async (event) => {
     const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
 
     try {
         const itemType = event.queryStringParameters?.itemType;
-        if (!itemType) return errorResponse(400, "Thiếu itemType");
+        if (!itemType) return await syncedErrorResponse(getUserId(event), 400, "Thiếu itemType");
         let exclusiveStartKey = null;
         const lastKeyStr = event.queryStringParameters?.lastKey;
         if (lastKeyStr) {
@@ -348,7 +349,7 @@ const handleSyncInventory = async (event) => {
         return successResponse({ inventory: inv.items, lastEvaluatedKey: inv.lastEvaluatedKey });
     } catch (err) {
         console.error("Lỗi syncInventory:", err);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
 
@@ -358,7 +359,7 @@ const handleSyncInventory = async (event) => {
 // ───────────────────────────────────────────────────────
 const handleSyncGachaHistory = async (event) => {
     const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
 
     try {
         let exclusiveStartKey = null;
@@ -371,7 +372,7 @@ const handleSyncGachaHistory = async (event) => {
         return successResponse({ gachaHistory: gh.items, lastEvaluatedKey: gh.lastEvaluatedKey });
     } catch (err) {
         console.error("Lỗi syncGachaHistory:", err);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
 
@@ -381,7 +382,7 @@ const handleSyncGachaHistory = async (event) => {
 // ───────────────────────────────────────────────────────
 const handleSyncSocial = async (event) => {
     const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
 
     try {
         let exclusiveStartKey = null;
@@ -394,7 +395,7 @@ const handleSyncSocial = async (event) => {
         return successResponse({ social: fr.items, lastEvaluatedKey: fr.lastEvaluatedKey });
     } catch (err) {
         console.error("Lỗi syncSocial:", err);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
 
@@ -404,7 +405,7 @@ const handleSyncSocial = async (event) => {
 // ───────────────────────────────────────────────────────
 const handleGetMasterData = async (event) => {
     const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
 
     try {
         // Lấy master data từ ITEMDATA_TABLE — SỬ DỤNG CACHE
@@ -422,7 +423,7 @@ const handleGetMasterData = async (event) => {
         return successResponse({ items });
     } catch (err) {
         console.error("Lỗi getMasterData:", err);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
 

@@ -8,7 +8,8 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import crypto from "crypto";
 import { docClient } from "../database.mjs";
-import { successResponse, errorResponse } from "../response.mjs";
+import { successResponse } from "../response.mjs";
+import { syncedErrorResponse } from "../errorSync.mjs";
 import { updateQuestProgress } from "../questFunction/questService.mjs";
 import { generateSudokuBoard } from "./sudokuGenerator.mjs";
 const JWT_SECRET = process.env.GAME_SECRET_KEY || "fallback_secret"; // Dùng env trong thực tế
@@ -35,7 +36,7 @@ function calculateScore(maxScoreCap, durationSeconds, elapsedSeconds) {
 // ═══════════════════════════════════════════════════════
 const handleGetSudokuLevels = async (event) => {
     const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
 
     try {
 
@@ -103,7 +104,7 @@ const handleGetSudokuLevels = async (event) => {
 
     } catch (err) {
         console.error("Lỗi getLevels:", err);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
 
@@ -115,7 +116,7 @@ const handleStartSession = async (event) => {
     const userId = getUserId(event);
     console.log(">>> [DEBUG] userId:", userId, "| Type:", typeof userId);
 
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
 
     try {
         const body = JSON.parse(event.body || "{}");
@@ -124,7 +125,7 @@ const handleStartSession = async (event) => {
         console.log(">>> [DEBUG] gameId:", gameId, "| Type:", typeof gameId);
         console.log(">>> [DEBUG] levelId:", levelId, "| Type:", typeof levelId);
 
-        if (!gameId || !levelId) return errorResponse(400, "Missing gameId or levelId");
+        if (!gameId || !levelId) return await syncedErrorResponse(getUserId(event), 400, "Missing gameId or levelId");
 
         const now = Date.now();
 
@@ -155,8 +156,8 @@ const handleStartSession = async (event) => {
         const profile = profileRes.Item;
         const level = levelRes.Item;
 
-        if (!profile) return errorResponse(404, "Profile not found");
-        if (!level) return errorResponse(404, "Level not found");
+        if (!profile) return await syncedErrorResponse(getUserId(event), 404, "Profile not found");
+        if (!level) return await syncedErrorResponse(getUserId(event), 404, "Level not found");
 
         // ==============================================================================
         // 2. Kiểm tra và trừ Sanity
@@ -165,7 +166,7 @@ const handleStartSession = async (event) => {
         const sanityCost = level.sanityCost || 0;
 
         if (budget.sanity < sanityCost) {
-            return errorResponse(400, "Not enough sanity");
+            return await syncedErrorResponse(getUserId(event), 400, "Not enough sanity");
         }
 
         budget.sanity -= sanityCost;
@@ -183,7 +184,7 @@ const handleStartSession = async (event) => {
             solutionGrid = boardData.solutionGrid;
             puzzleGrid = boardData.puzzleGrid; // 👈 LẤY ĐỀ BÀI TỪ GENERATOR
         } else {
-            return errorResponse(400, "Unsupported gameId");
+            return await syncedErrorResponse(getUserId(event), 400, "Unsupported gameId");
         }
 
         // ==============================================================================
@@ -248,7 +249,7 @@ const handleStartSession = async (event) => {
 
     } catch (error) {
         console.error(">>> [CATCH CUỐI CÙNG] Lỗi Start Game Session:", error);
-        return errorResponse(500, error.message || "Lỗi xử lý tạo màn chơi");
+        return await syncedErrorResponse(getUserId(event), 500, error.message || "Lỗi xử lý tạo màn chơi");
     }
 };
 // ═══════════════════════════════════════════════════════
@@ -336,7 +337,7 @@ const checkSudokuCheat = (session, clientLogs, currentGridStr) => {
 // ═══════════════════════════════════════════════════════
 const handleCheckSudokuBoard = async (event) => {
     const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
 
     try {
         const body = JSON.parse(event.body || "{}");
@@ -350,16 +351,16 @@ const handleCheckSudokuBoard = async (event) => {
         const session = sessionRes.Item;
 
         if (!session || session.status !== "PENDING") {
-            return errorResponse(400, "Không tìm thấy phiên chơi hợp lệ.");
+            return await syncedErrorResponse(getUserId(event), 400, "Không tìm thấy phiên chơi hợp lệ.");
         }
         if (session.checkCount <= 0) {
-            return errorResponse(400, "Đã hết lượt kiểm tra.");
+            return await syncedErrorResponse(getUserId(event), 400, "Đã hết lượt kiểm tra.");
         }
 
         // 2. Chạy hàm kiểm tra cheat & đúng sai
         const cheatResult = checkSudokuCheat(session, actionLogs, currentGrid);
         if (cheatResult.isCheat) {
-            return errorResponse(403, `Phát hiện gian lận: ${cheatResult.reason}`);
+            return await syncedErrorResponse(getUserId(event), 403, `Phát hiện gian lận: ${cheatResult.reason}`);
         }
 
         // 3. Trừ checkCount
@@ -379,7 +380,7 @@ const handleCheckSudokuBoard = async (event) => {
 
     } catch (error) {
         console.error("Lỗi kiểm tra bàn cờ:", error);
-        return errorResponse(500, "Lỗi máy chủ.");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ.");
     }
 };
 
@@ -388,7 +389,7 @@ const handleCheckSudokuBoard = async (event) => {
 // ═══════════════════════════════════════════════════════
 const handleEndSudokuSession = async (event) => {
     const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
 
     try {
         const body = JSON.parse(event.body || "{}");
@@ -404,7 +405,7 @@ const handleEndSudokuSession = async (event) => {
         const session = sessionRes.Item;
         const profile = profileRes.Item;
 
-        if (!session || session.status !== "PENDING") return errorResponse(400, "Phiên chơi không hợp lệ.");
+        if (!session || session.status !== "PENDING") return await syncedErrorResponse(getUserId(event), 400, "Phiên chơi không hợp lệ.");
 
         let budget = profile.budget;
 
@@ -435,9 +436,9 @@ const handleEndSudokuSession = async (event) => {
         // --- TRƯỜNG HỢP NỘP BÀI (WIN) ---
         // Kiểm tra cheat & full board
         const cheatResult = checkSudokuCheat(session, actionLogs, finalGrid);
-        if (cheatResult.isCheat) return errorResponse(403, `Phát hiện gian lận: ${cheatResult.reason}`);
+        if (cheatResult.isCheat) return await syncedErrorResponse(getUserId(event), 403, `Phát hiện gian lận: ${cheatResult.reason}`);
         if (!cheatResult.isBoardCorrect || finalGrid.indexOf('0') !== -1) {
-            return errorResponse(400, "Bàn cờ giải chưa chính xác hoặc chưa hoàn thành.");
+            return await syncedErrorResponse(getUserId(event), 400, "Bàn cờ giải chưa chính xác hoặc chưa hoàn thành.");
         }
 
         // Lấy thông tin Level để tính điểm
@@ -536,7 +537,7 @@ const handleEndSudokuSession = async (event) => {
 
     } catch (error) {
         console.error("Lỗi nộp bài:", error);
-        return errorResponse(500, "Lỗi máy chủ.");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ.");
     }
 };
 
@@ -545,11 +546,11 @@ const handleEndSudokuSession = async (event) => {
 // ═══════════════════════════════════════════════════════
 const handleGetGlobalLeaderboard = async (event) => {
     const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
 
     try {
         const gameId = event.queryStringParameters?.gameId;
-        if (!gameId) return errorResponse(400, "gameId là bắt buộc");
+        if (!gameId) return await syncedErrorResponse(getUserId(event), 400, "gameId là bắt buộc");
 
         const result = await docClient.send(
             new GetCommand({
@@ -565,7 +566,7 @@ const handleGetGlobalLeaderboard = async (event) => {
         return successResponse({ leaderboard: result.Item.entries || [], gameId });
     } catch (err) {
         console.error("Lỗi getGlobalLeaderboard:", err);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
 
@@ -574,11 +575,11 @@ const handleGetGlobalLeaderboard = async (event) => {
 // ═══════════════════════════════════════════════════════
 const handleGetFriendsLeaderboard = async (event) => {
     const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
 
     try {
         const gameId = event.queryStringParameters?.gameId;
-        if (!gameId) return errorResponse(400, "gameId là bắt buộc");
+        if (!gameId) return await syncedErrorResponse(getUserId(event), 400, "gameId là bắt buộc");
 
         // Lấy danh sách bạn bè ACCEPTED
         const friendsResult = await docClient.send(
@@ -635,7 +636,7 @@ const handleGetFriendsLeaderboard = async (event) => {
         return successResponse({ leaderboard: sorted, gameId });
     } catch (err) {
         console.error("Lỗi getFriendsLeaderboard:", err);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
 
