@@ -263,13 +263,48 @@ const checkSudokuCheat = (session, clientLogs, currentGridStr) => {
         return { isCheat: true, reason: "Thời gian hoàn thành bất thường." };
     }
 
-    // 2. Kiểm tra log nước đi
-    if (clientLogs && clientLogs.length > 0) {
+    // 2. Kiểm tra log nước đi cải tiến
+    if (clientLogs && clientLogs.length > 1) {
+        let rapidBurstCount = 0;
+
         for (let i = 1; i < clientLogs.length; i++) {
             const timeDiff = clientLogs[i].timestamp - clientLogs[i - 1].timestamp;
-            // Nếu thời gian đi lùi hoặc 2 nước đi cách nhau dưới 15ms (bot)
-            if (timeDiff < 0 || timeDiff < 15) {
-                return { isCheat: true, reason: "Tốc độ thao tác bất thường (nghi ngờ Auto-bot)." };
+
+            // A. Kiểm tra thời gian đi lùi (Chống hack đổi giờ hệ thống trên Client)
+            if (timeDiff < 0) {
+                return { isCheat: true, reason: "Phát hiện can thiệp thời gian hệ thống (Time travel)." };
+            }
+
+            // B. Ngưỡng vật lý tuyệt đối (Chống script đẩy log trực tiếp)
+            // Con người hầu như không thể tạo ra 2 event khác nhau dưới 10ms qua UI web
+            if (timeDiff < 10) {
+                return { isCheat: true, reason: "Phát hiện thao tác máy móc (Dưới 10ms)." };
+            }
+
+            // C. Giới hạn chuỗi thao tác nhanh (Burst Limit)
+            // 50ms là rất nhanh đối với thao tác tay. Ta cho phép họ gõ nhanh 2-3 lần (burst).
+            if (timeDiff < 50) {
+                rapidBurstCount++;
+                // Nếu thao tác < 50ms lặp lại liên tục quá 4 lần -> Nghi ngờ dùng tool điền tự động hoặc copy-paste
+                if (rapidBurstCount >= 4) {
+                    return { isCheat: true, reason: "Chuỗi thao tác nhanh bất thường (Auto-bot script)." };
+                }
+            } else {
+                // Nếu có khoảng nghỉ bình thường (>= 50ms), reset lại bộ đếm burst
+                rapidBurstCount = 0;
+            }
+        }
+
+        // D. Kiểm tra tốc độ trung bình (Average Speed Limit)
+        // Tổng số thao tác chia cho tổng thời gian thao tác (tính bằng giây)
+        const totalLogTimeMs = clientLogs[clientLogs.length - 1].timestamp - clientLogs[0].timestamp;
+
+        // Chỉ xét trung bình nếu log có từ 10 thao tác trở lên để có dữ liệu đáng tin cậy
+        if (clientLogs.length >= 10 && totalLogTimeMs > 0) {
+            const avgMovesPerSecond = clientLogs.length / (totalLogTimeMs / 1000);
+            // Nếu người chơi đạt trên 15 thao tác / giây -> Bot
+            if (avgMovesPerSecond > 15) {
+                return { isCheat: true, reason: "Tốc độ điền trung bình vượt quá giới hạn vật lý của con người." };
             }
         }
     }
