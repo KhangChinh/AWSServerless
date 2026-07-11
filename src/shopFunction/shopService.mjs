@@ -1,223 +1,268 @@
-import {
-    GetCommand,
-    BatchGetCommand,
-    QueryCommand,
-    TransactWriteCommand,
-} from "@aws-sdk/lib-dynamodb";
+import { PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { docClient } from "../database.mjs";
+import { getCachedMasterData } from "../cacheHelper.mjs";
 import { successResponse, errorResponse } from "../response.mjs";
+import { fetchInventoryPage } from "../syncFunction/syncService.mjs";
 
 const getUserId = (event) => {
     const auth = event.requestContext?.authorizer;
     return auth?.jwt?.claims?.sub || auth?.claims?.sub || null;
 };
 
-// ═══════════════════════════════════════════════════════
-// GET /shop?shopId=eCoinShop
-// Lấy thông tin shop và đánh dấu item nào user đã sở hữu
-// ═══════════════════════════════════════════════════════
-const handleGetShop = async (event) => {
-    const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
-
+const handleRefresheCoinShop = async (event) => {
     try {
-        const shopId = event.queryStringParameters?.shopId;
-        if (!shopId) return errorResponse(400, "shopId là bắt buộc");
-
-        // Lấy cấu hình shop từ ITEMDATA_TABLE (PK=shop, SK=shopId)
-        const shopResult = await docClient.send(
-            new GetCommand({
-                TableName: process.env.ITEMDATA_TABLE,
-                Key: { PK: "shop", SK: shopId },
-            })
-        );
-        const shop = shopResult.Item;
-        if (!shop) return errorResponse(404, "Không tìm thấy shop");
-
-        const now = Math.floor(Date.now() / 1000);
-        if (shop.expiresAt && shop.expiresAt < now) {
-            return errorResponse(410, "Shop đã hết hạn");
-        }
-
-        // Kiểm tra từng item user đã sở hữu chưa (dùng BatchGetCommand)
-        const activeItems = shop.activeItems || [];
-        if (activeItems.length === 0) {
-            return successResponse({ shop: { ...shop, activeItems: [] } });
-        }
-
-        const keysToGet = activeItems.map(item => {
-            const itemSK = item.itemId.replace("item#", "");
-            return { PK: userId, SK: itemSK };
+        console.log("Bắt đầu refresh eCoin Shop sử dụng Cache Helper...");
+        const allItems = await getCachedMasterData(async () => {
+            console.log("[Shop Refresh] Cache MISS - Đang kéo dữ liệu mới từ DynamoDB...");
+            const result = await docClient.send(
+                new QueryCommand({
+                    TableName: process.env.ITEMDATA_TABLE,
+                    KeyConditionExpression: "PK = :pk",
+                    ExpressionAttributeValues: { ":pk": "item" },
+                })
+            );
+            return result.Items || [];
         });
-
-        // BatchGetCommand (Giới hạn tối đa 100 items mỗi batch, thường shop không quá 100)
-        let ownedSet = new Set();
-        if (keysToGet.length > 0) {
-            // Tạm chia batch nếu > 100 (phòng hờ)
-            const BATCH_SIZE = 100;
-            for (let i = 0; i < keysToGet.length; i += BATCH_SIZE) {
-                const batchKeys = keysToGet.slice(i, i + BATCH_SIZE);
-                const batchResult = await docClient.send(
-                    new BatchGetCommand({
-                        RequestItems: {
-                            [process.env.INVENTORY_TABLE]: {
-                                Keys: batchKeys
-                            }
-                        }
-                    })
-                );
-                const responses = batchResult.Responses?.[process.env.INVENTORY_TABLE] || [];
-                responses.forEach(res => ownedSet.add(res.SK));
-            }
+        const candidates = allItems.filter(item => item.collectFrom === "eCoinShop");
+        if (candidates.length === 0) {
+            console.log("Không tìm thấy vật phẩm nào có collectFrom = eCoinShop trong Master Data");
+            return;
         }
-
-        const enrichedItems = activeItems.map((item) => {
-            const itemSK = item.itemId.replace("item#", "");
-            return { ...item, owned: ownedSet.has(itemSK) };
-        });
-
-        return successResponse({ shop: { ...shop, activeItems: enrichedItems } });
-    } catch (err) {
-        console.error("Lỗi getShop:", err);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
-    }
-};
-
-// ═══════════════════════════════════════════════════════
-// POST /shop/buy
-// Body: { shopId: string, itemId: string }
-// itemId là SK của item trong shop.activeItems (e.g., "item#frame_stone_1")
-// ═══════════════════════════════════════════════════════
-const handleBuyItem = async (event) => {
-    const userId = getUserId(event);
-    if (!userId) return errorResponse(401, "Unauthorized");
-
-    try {
-        const body = JSON.parse(event.body || "{}");
-        const { shopId, itemId } = body;
-
-        if (!shopId || !itemId) {
-            return errorResponse(400, "shopId và itemId là bắt buộc");
-        }
-
-        // ── 1. Kiểm tra shop còn hiệu lực ──
-        const shopResult = await docClient.send(
-            new GetCommand({
-                TableName: process.env.ITEMDATA_TABLE,
-                Key: { PK: "shop", SK: shopId },
-            })
-        );
-        const shop = shopResult.Item;
-        if (!shop) return errorResponse(404, "Không tìm thấy shop");
-
-        const now = Date.now();
-        const nowSec = Math.floor(now / 1000);
-        if (shop.expiresAt && shop.expiresAt < nowSec) {
-            return errorResponse(410, "Shop đã hết hạn");
-        }
-
-        // Tìm item trong shop
-        const itemSK = itemId.replace("item#", "");
-        const shopItem = (shop.activeItems || []).find(
-            (i) => i.itemId === itemId || i.itemId === `item#${itemSK}`
-        );
-        if (!shopItem) return errorResponse(404, "Vật phẩm không có trong shop này");
-
-        // ── 2. Kiểm tra user đã sở hữu chưa ──
-        const invCheck = await docClient.send(
-            new GetCommand({
-                TableName: process.env.INVENTORY_TABLE,
-                Key: { PK: userId, SK: itemSK },
-            })
-        );
-        if (invCheck.Item) {
-            return errorResponse(409, "Bạn đã sở hữu vật phẩm này rồi");
-        }
-
-        // ── 3. Đọc profile kiểm tra số dư ──
-        const profileResult = await docClient.send(
-            new GetCommand({
-                TableName: process.env.USER_TABLE,
-                Key: { PK: userId },
-            })
-        );
-        const profile = profileResult.Item;
-        if (!profile) return errorResponse(404, "Không tìm thấy profile");
-
-        const { budget } = profile;
-        const currency = shopItem.currencyType; // "eCoin" | "knowledgePoint" | ...
-        const price = shopItem.price;
-
-        if ((budget[currency] || 0) < price) {
-            return errorResponse(402, `Không đủ ${currency} để mua vật phẩm này`);
-        }
-
-        const newBalance = budget[currency] - price;
-
-        // ── 4. Transaction: trừ tiền + cấp item ──
+        const shuffled = candidates.sort(() => 0.5 - Math.random());
+        const selectedItems = shuffled.slice(0, 3).map(item => ({
+            itemId: item.SK,
+            name: item.name,
+            imageUrl: item.imageUrl,
+            rarity: item.rarity,
+            itemType: item.itemType,
+            currencyType: "eCoin",
+            price: item.price || 99
+        }));
+        // 4. Tính toán expiresAt (00:00:00 UTC ngày hôm sau)
+        const now = new Date();
+        now.setUTCDate(now.getUTCDate() + 7);
+        now.setUTCHours(0, 0, 0, 0);
+        const expiresAt = Math.floor(now.getTime() / 1000);
+        // 5. Chuẩn bị Object Shop để ghi đè
+        const shopData = {
+            PK: "shop",
+            SK: "eCoinShop",
+            activeItems: selectedItems,
+            expiresAt: expiresAt,
+            updatedAt: Math.floor(Date.now() / 1000)
+        };
+        // 6. Lưu đè / Tạo mới vào DynamoDB
         await docClient.send(
-            new TransactWriteCommand({
-                TransactItems: [
-                    // Trừ tiền trong profile
-                    {
-                        Update: {
-                            TableName: process.env.USER_TABLE,
-                            Key: { PK: userId },
-                            UpdateExpression: `SET budget.#cur = :bal, updatedAt = :now, inventoryUpdatedAt = :now`,
-                            ExpressionAttributeNames: { "#cur": currency },
-                            ExpressionAttributeValues: {
-                                ":bal": newBalance,
-                                ":now": now,
-                                // Điều kiện: số dư không thay đổi kể từ lúc đọc
-                                ":requiredBalance": budget[currency],
-                            },
-                            ConditionExpression: `budget.#cur = :requiredBalance`,
-                        },
-                    },
-                    // Cấp item vào inventory
-                    {
-                        Put: {
-                            TableName: process.env.INVENTORY_TABLE,
-                            Item: {
-                                PK: userId,
-                                SK: itemSK,
-                                rarity: String(shopItem.rarity),
-                                name: shopItem.name,
-                                imageUrl: shopItem.imageUrl,
-                                itemType: shopItem.itemType,
-                                collectFrom: shopId,
-                                acquiredAt: new Date(now).toISOString(),
-                            },
-                            // Không cho ghi đè nếu đã tồn tại
-                            ConditionExpression: "attribute_not_exists(PK)",
-                        },
-                    },
-                ],
+            new PutCommand({
+                TableName: process.env.ITEMDATA_TABLE,
+                Item: shopData
             })
         );
-
-        return successResponse({
-            message: "Mua thành công",
-            newBalance,
-            currency,
-            item: {
-                SK: itemSK,
-                name: shopItem.name,
-                imageUrl: shopItem.imageUrl,
-                itemType: shopItem.itemType,
-                rarity: shopItem.rarity,
-                collectFrom: shopId,
-                acquiredAt: new Date(now).toISOString(),
-            },
-            updatedAt: now,
-        });
+        console.log("Refresh eCoin Shop thành công!");
+        return shopData;
     } catch (err) {
-        if (err.name === "TransactionCanceledException") {
-            return errorResponse(409, "Giao dịch bị từ chối: số dư thay đổi hoặc đã sở hữu vật phẩm");
+        console.error("Lỗi khi refresh eCoin Shop:", err);
+        throw err;
+    }
+};
+
+const handleGeteCoinShop = async (event) => {
+    try {
+        const userId = getUserId(event);
+        if (!userId) return errorResponse(401, "Unauthorized");
+        const shopResult = await docClient.send(
+            new GetCommand({
+                TableName: process.env.ITEMDATA_TABLE,
+                Key: {
+                    PK: "shop",
+                    SK: "eCoinShop"
+                }
+            })
+        );
+        const shopData = shopResult.Item;
+        if (!shopData || !shopData.activeItems || shopData.activeItems.length === 0) {
+            return successResponse({
+                shop: {
+                    activeItems: [],
+                    expiresAt: null
+                },
+                message: "Shop hiện đang trống."
+            });
         }
-        console.error("Lỗi buyItem:", err);
+        // 2. Gom danh sách itemId đang bán để check túi đồ
+        const keysToFetch = shopData.activeItems.map(item => ({
+            PK: userId,
+            SK: item.itemId
+        }));
+        // 3. Kéo túi đồ của User (chỉ lấy đúng những item đang bán trong shop)
+        const batchResult = await docClient.send(
+            new BatchGetCommand({
+                RequestItems: {
+                    [process.env.INVENTORY_TABLE]: {
+                        Keys: keysToFetch,
+                        ProjectionExpression: "SK" // Tối ưu: Chỉ cần kéo SK về để xác nhận là có tồn tại
+                    }
+                }
+            })
+        );
+        // 4. Đưa các item đã sở hữu vào một Set để check cho nhanh
+        const inventoryItems = batchResult.Responses?.[process.env.INVENTORY_TABLE] || [];
+        const ownedItemIds = new Set(inventoryItems.map(inv => inv.SK));
+        // 5. Map lại danh sách shop và nhét thêm cờ isOwned
+        const enrichedItems = shopData.activeItems.map(item => ({
+            ...item,
+            isOwned: ownedItemIds.has(item.itemId)
+        }));
+        // Bỏ các trường nội bộ của Database trước khi gửi về App
+        const { PK, SK, updatedAt, ...clientShopData } = shopData;
+        clientShopData.activeItems = enrichedItems; // Tráo mảng cũ bằng mảng đã có isOwned
+        return successResponse({
+            success: true,
+            message: "Lấy dữ liệu cửa hàng thành công",
+            shop: clientShopData
+        });
+
+    } catch (err) {
+        console.error("Lỗi khi lấy dữ liệu eCoin Shop:", err);
         return errorResponse(500, "Lỗi máy chủ nội bộ");
     }
 };
 
-export { handleGetShop, handleBuyItem };
+const handleBuyeCoinItem = async (event) => {
+    try {
+        const userId = getUserId(event);
+        if (!userId) return errorResponse(401, "Unauthorized");
+        const body = JSON.parse(event.body || "{}");
+        const { itemId } = body;
+        if (!itemId) return errorResponse(400, "Thiếu itemId cần mua.");
+        // 1. Kéo dữ liệu Shop và Profile cùng lúc để kiểm tra
+        const [shopResult, profileResult] = await Promise.all([
+            docClient.send(new GetCommand({
+                TableName: process.env.ITEMDATA_TABLE,
+                Key: { PK: "shop", SK: "eCoinShop" }
+            })),
+            docClient.send(new GetCommand({
+                TableName: process.env.USER_TABLE,
+                Key: { PK: userId }
+            }))
+        ]);
+        const shopData = shopResult.Item;
+        const profile = profileResult.Item;
+        if (!profile) return errorResponse(404, "Không tìm thấy người dùng.");
+        if (!shopData || !shopData.activeItems || shopData.activeItems.length === 0) {
+            return errorResponse(400, "Shop hiện đang trống hoặc đã hết hạn.");
+        }
+        // 2. Tìm item người dùng muốn mua trong Shop
+        const itemToBuy = shopData.activeItems.find(item => item.itemId === itemId);
+        if (!itemToBuy) {
+            return errorResponse(400, "Vật phẩm không tồn tại trong cửa hàng hiện tại.");
+        }
+        // Kiểm tra số dư eCoin (Đảm bảo rơi vào fallback = 0 nếu user chưa từng có eCoin)
+        const currentECoin = profile.budget?.eCoin || 0;
+        if (currentECoin < itemToBuy.price) {
+            return errorResponse(400, "Không đủ eCoin để mua vật phẩm này.");
+        }
+        // 3. Kéo túi đồ để check xem user đã sở hữu những item nào trong shop
+        const keysToFetch = shopData.activeItems.map(item => ({
+            PK: userId,
+            SK: item.itemId
+        }));
+        const batchResult = await docClient.send(new BatchGetCommand({
+            RequestItems: {
+                [process.env.INVENTORY_TABLE]: {
+                    Keys: keysToFetch,
+                    ProjectionExpression: "SK"
+                }
+            }
+        }));
+        const inventoryItems = batchResult.Responses?.[process.env.INVENTORY_TABLE] || [];
+        const ownedItemIds = new Set(inventoryItems.map(inv => inv.SK));
+        // Kiểm tra xem đã sở hữu món đồ định mua chưa
+        if (ownedItemIds.has(itemId)) {
+            return errorResponse(400, "Bạn đã sở hữu vật phẩm này rồi.");
+        }
+        // 4. THỰC THI TRANSACTION: Trừ tiền và Thêm item vào Inventory cùng 1 lúc
+        const now = Date.now(); // Lấy theo milliseconds chuẩn của gachaService
+        const nowSeconds = Math.floor(now / 1000);
+        await docClient.send(new TransactWriteCommand({
+            TransactItems: [
+                {
+                    // Lệnh 1: Trừ eCoin trong Profile
+                    Update: {
+                        TableName: process.env.USER_TABLE,
+                        Key: { PK: userId },
+                        UpdateExpression: "SET budget.eCoin = budget.eCoin - :price, updatedAt = :nowSeconds",
+                        ConditionExpression: "budget.eCoin >= :price", // Chống lố tiền nếu bị spam click
+                        ExpressionAttributeValues: {
+                            ":price": itemToBuy.price,
+                            ":nowSeconds": nowSeconds
+                        }
+                    }
+                },
+                {
+                    // Lệnh 2: Thêm item vào Inventory với đầy đủ metadata giống Gacha
+                    Put: {
+                        TableName: process.env.INVENTORY_TABLE,
+                        Item: {
+                            PK: userId,
+                            SK: itemToBuy.itemId,
+                            acquiredAt: new Date(now).toISOString(), // Đồng bộ định dạng ISOString với gachaService
+                            itemType: itemToBuy.itemType,
+                            name: itemToBuy.name,
+                            imageUrl: itemToBuy.imageUrl,
+                            rarity: itemToBuy.rarity
+                        },
+                        ConditionExpression: "attribute_not_exists(SK)" // Đảm bảo không bị ghi đè nếu đã có
+                    }
+                }
+            ]
+        }));
+        // 5. CHUẨN BỊ FULL DATA ĐỂ TRẢ VỀ CHO FRONTEND
+        // 5.1. Cập nhật lại Profile local
+        const updatedProfile = {
+            ...profile,
+            budget: {
+                ...profile.budget,
+                eCoin: currentECoin - itemToBuy.price
+            },
+            updatedAt: nowSeconds
+        };
+        // 5.2. Cập nhật lại Shop local (Đổi isOwned của item vừa mua thành true)
+        ownedItemIds.add(itemId);
+        const enrichedItems = shopData.activeItems.map(item => ({
+            ...item,
+            isOwned: ownedItemIds.has(item.itemId)
+        }));
+        const { PK, SK, updatedAt: shopUpdatedAt, ...clientShopData } = shopData;
+        clientShopData.activeItems = enrichedItems;
+        // 5.3. Kéo lại túi đồ (Inventory) mới nhất của tab tương ứng với item vừa mua
+        // Để Frontend cập nhật thẳng vào giao diện kho đồ (y hệt gachaService)
+        const invPage = await fetchInventoryPage(userId, null, itemToBuy.itemType);
+        const inventoryResult = {
+            [itemToBuy.itemType]: {
+                items: invPage.items,
+                lastEvaluatedKey: invPage.lastEvaluatedKey
+            }
+        };
+        // 6. TRẢ VỀ FORM CHUẨN
+        return successResponse({
+            success: true,
+            message: `Mua thành công ${itemToBuy.name}!`,
+            profile: updatedProfile,
+            shop: clientShopData,
+            inventory: inventoryResult
+        });
+    } catch (err) {
+        console.error("Lỗi khi mua vật phẩm eCoin:", err);
+        if (err.name === 'TransactionCanceledException') {
+            return errorResponse(400, "Giao dịch không hợp lệ hoặc số dư không đủ.");
+        }
+        return errorResponse(500, "Lỗi máy chủ nội bộ");
+    }
+};
+
+export {
+    handleRefresheCoinShop,
+    handleGeteCoinShop,
+    handleBuyeCoinItem
+}

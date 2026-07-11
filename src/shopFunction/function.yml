@@ -1,17 +1,27 @@
-getShop:
-  handler: src/shopFunction/shopService.handleGetShop
+refresheCoinShop:
+  handler: src/shopFunction/shopService.handleRefresheCoinShop
+  events:
+    # Cú pháp cron: cron(Phút Giờ Ngày-trong-tháng Tháng Ngày-trong-tuần Năm)
+    # 0 17 ? * SUN * = 17:00 Chủ Nhật hàng tuần (UTC) = 00:00 Thứ 2 hàng tuần (Giờ VN)
+    - schedule: 
+        name: eCoin-shop-weekly-refresh
+        description: Trigger refresh shop moi tuan vao 0h sang Thu 2 gio VN
+        rate: cron(0 17 ? * SUN *)
+
+geteCoinShop:
+  handler: src/shopFunction/shopService.handleGeteCoinShop
   events:
     - httpApi:
-        path: /shop
+        path: /shop/ecoin
         method: get
         authorizer:
           name: myCognitoAuth
 
-buyItem:
-  handler: src/shopFunction/shopService.handleBuyItem
+buyeCoinItem:
+  handler: src/shopFunction/shopService.handleBuyeCoinItem
   events:
     - httpApi:
-        path: /shop/buy
+        path: /shop/ecoin/buy
         method: post
         authorizer:
           name: myCognitoAuth

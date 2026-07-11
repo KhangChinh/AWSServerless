@@ -21,5 +21,6 @@
             "price": 2500
         }
     ],
-    "expiresAt": 1780444800
+    "expiresAt": 1780444800,
+    "updatedAt": 1699999999
 }
