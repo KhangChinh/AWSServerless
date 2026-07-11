@@ -251,245 +251,256 @@ const handleStartSession = async (event) => {
         return errorResponse(500, error.message || "Lỗi xử lý tạo màn chơi");
     }
 };
-
 // ═══════════════════════════════════════════════════════
-// POST /minigame/end
-// Body: { gameId: string, finalGrid?: string, actionLog?: Array }
-const handleEndGame = async (event) => {
-    const eventUserId = getUserId(event);
-    if (!eventUserId) return errorResponse(401, "Unauthorized");
+// HÀM KIỂM TRA GIAN LẬN & ĐÁNH GIÁ BÀN CỜ
+// ═══════════════════════════════════════════════════════
+const checkSudokuCheat = (session, clientLogs, currentGridStr) => {
+    const now = Date.now();
+    const timeSpentMs = now - session.startTime;
+
+    // 1. Kiểm tra thời gian chơi (VD: Hoàn thành Sudoku dưới 5s là không thể)
+    if (timeSpentMs < 5000 && currentGridStr.indexOf('0') === -1) {
+        return { isCheat: true, reason: "Thời gian hoàn thành bất thường." };
+    }
+
+    // 2. Kiểm tra log nước đi
+    if (clientLogs && clientLogs.length > 0) {
+        for (let i = 1; i < clientLogs.length; i++) {
+            const timeDiff = clientLogs[i].timestamp - clientLogs[i - 1].timestamp;
+            // Nếu thời gian đi lùi hoặc 2 nước đi cách nhau dưới 15ms (bot)
+            if (timeDiff < 0 || timeDiff < 15) {
+                return { isCheat: true, reason: "Tốc độ thao tác bất thường (nghi ngờ Auto-bot)." };
+            }
+        }
+    }
+
+    // Đề xuất thêm: Kiểm tra grid hiện tại có sửa đề bài không (Nếu session có lưu puzzleGrid)
+    /* if (session.puzzleGrid) {
+        for(let i=0; i<81; i++) {
+            if(session.puzzleGrid[i] !== '0' && currentGridStr[i] !== session.puzzleGrid[i]) {
+                return { isCheat: true, reason: "Sửa đổi ô khóa của đề bài." };
+            }
+        }
+    } 
+    */
+
+    // 3. Kiểm tra tính chính xác của lưới hiện tại so với solutionGrid
+    let isBoardCorrect = true;
+    for (let i = 0; i < currentGridStr.length; i++) {
+        if (currentGridStr[i] !== '0' && currentGridStr[i] !== session.solutionGrid[i]) {
+            isBoardCorrect = false;
+            break;
+        }
+    }
+
+    return { isCheat: false, isBoardCorrect };
+};
+// ═══════════════════════════════════════════════════════
+// POST /minigame/sudokulevels/check
+// ═══════════════════════════════════════════════════════
+const handleCheckSudokuBoard = async (event) => {
+    const userId = getUserId(event);
+    if (!userId) return errorResponse(401, "Unauthorized");
 
     try {
         const body = JSON.parse(event.body || "{}");
-        const { gameId, gameToken, finalGrid, actionLog = [] } = body;
+        const { currentGrid, actionLogs } = body;
 
-        if (!gameId || !gameToken) return errorResponse(400, "gameId và gameToken là bắt buộc");
+        // 1. Lấy Session
+        const sessionRes = await docClient.send(new GetCommand({
+            TableName: process.env.MINIGAME_TABLE,
+            Key: { PK: userId, SK: "session#sudoku" }
+        }));
+        const session = sessionRes.Item;
 
-        // ── 1. Xác thực HMAC Token ──
-        const parts = gameToken.split(".");
-        if (parts.length !== 2) return errorResponse(400, "gameToken không hợp lệ");
-
-        const [base64Payload, signature] = parts;
-        const payloadStr = Buffer.from(base64Payload, "base64").toString("utf-8");
-
-        const expectedHmac = crypto.createHmac("sha256", JWT_SECRET).update(payloadStr).digest("hex");
-        if (signature !== expectedHmac) {
-            console.error("Token tampered! Fraud detected for user:", eventUserId);
-            return errorResponse(403, "Phát hiện gian lận: Dữ liệu đã bị chỉnh sửa!");
+        if (!session || session.status !== "PENDING") {
+            return errorResponse(400, "Không tìm thấy phiên chơi hợp lệ.");
+        }
+        if (session.checkCount <= 0) {
+            return errorResponse(400, "Đã hết lượt kiểm tra.");
         }
 
-        const { userId, levelId, seed, startTime, sanityCost } = JSON.parse(payloadStr);
-
-        if (userId !== eventUserId) {
-            return errorResponse(403, "Token không thuộc về user này");
+        // 2. Chạy hàm kiểm tra cheat & đúng sai
+        const cheatResult = checkSudokuCheat(session, actionLogs, currentGrid);
+        if (cheatResult.isCheat) {
+            return errorResponse(403, `Phát hiện gian lận: ${cheatResult.reason}`);
         }
 
-        const now = Date.now();
-        const elapsedSeconds = Math.floor((now - startTime) / 1000);
-
-        // Lấy thông tin màn chơi
-        const levelResult = await docClient.send(
-            new GetCommand({
-                TableName: process.env.MINIGAME_TABLE,
-                Key: { PK: gameId, SK: levelId },
-            })
-        );
-        const level = levelResult.Item;
-        if (!level) return errorResponse(404, "Không tìm thấy dữ liệu màn chơi");
-
-        // ── 2. Anti-cheat checks ──
-        const MIN_SECONDS = 5;
-        let isWin = false;
-
-        if (elapsedSeconds < MIN_SECONDS) {
-            isWin = false; // quá nhanh → gian lận
-        } else {
-            // Anti-cheat 2: Tái sinh map bằng seed trên RAM
-            if (gameId === "minesweeper") {
-                // Tương lai: Generate map từ `seed` bằng PRNG và so khớp mảng `finalGrid` (tọa độ user click).
-                // Hiện tại: Tạm thời cho isWin nếu client truyền list, chờ hoàn thiện Generator.
-                if (Array.isArray(finalGrid) && finalGrid.length > 0) {
-                    isWin = true;
-                } else {
-                    isWin = false;
-                }
-            } else if (gameId === "sudoku") {
-                const solutionGrid = level.baseMapConfig?.solutionGrid;
-                isWin = (finalGrid === solutionGrid);
-            }
-        }
-
-        // ── Tính phần thưởng ──
-        const profileResult = await docClient.send(
-            new GetCommand({
-                TableName: process.env.USER_TABLE,
-                Key: { PK: userId },
-            })
-        );
-        const profile = profileResult.Item;
-
-        let earnedECoin = 0;
-        let earnedSanity = 0;
-        let score = 0;
-
-        if (isWin) {
-            earnedECoin = level.eCoin || 0;
-            score = calculateScore(
-                level.maxScoreCap || 1000,
-                level.maxScoreCap || 1000, // dùng maxScoreCap làm baseline
-                elapsedSeconds
-            );
-        } else {
-            // Thua: hoàn 50% sanityCost
-            earnedSanity = Math.floor((sanityCost || 0) * 0.5);
-        }
-
-        const currentECoin = profile.budget?.eCoin || 0;
-        const currentSanity = profile.budget?.sanity || 0;
-        const newECoin = currentECoin + earnedECoin;
-        const newSanity = currentSanity + earnedSanity;
-        const newNow = Date.now();
-
-        // ── Cập nhật score record ──
-        let scoreUpdated = false;
-        let oldPersonalBest = 0;
-
-        if (isWin) {
-            const scoreKey = `score#${gameId}#${levelId}`;
-            const existingScore = await docClient.send(
-                new GetCommand({
-                    TableName: process.env.MINIGAME_TABLE,
-                    Key: { PK: userId, SK: scoreKey },
-                })
-            );
-
-            if (!existingScore.Item) {
-                // Tạo mới
-                await docClient.send(
-                    new TransactWriteCommand({
-                        TransactItems: [
-                            {
-                                Put: {
-                                    TableName: process.env.MINIGAME_TABLE,
-                                    Item: {
-                                        PK: userId,
-                                        SK: scoreKey,
-                                        personalBest: score,
-                                        achievedAt: newNow,
-                                    },
-                                },
-                            },
-                            // Cập nhật stats
-                            {
-                                Update: {
-                                    TableName: process.env.MINIGAME_TABLE,
-                                    Key: { PK: userId, SK: `stats#${gameId}` },
-                                    UpdateExpression:
-                                        "ADD levelsCompleted :one, totalScore :score SET gameId = :gid, lastUpdatedAt = :now, displayInfo = :info",
-                                    ExpressionAttributeValues: {
-                                        ":one": 1,
-                                        ":score": score,
-                                        ":gid": gameId,
-                                        ":now": newNow,
-                                        ":info": {
-                                            name: profile.information?.name,
-                                            avatarUrl: profile.information?.avatarUrl,
-                                            equippedFrame: profile.equippedCosmetics?.equippedFrame,
-                                        },
-                                    },
-                                },
-                            },
-                        ],
-                    })
-                );
-                scoreUpdated = true;
-            } else if (score > existingScore.Item.personalBest) {
-                // Vượt personalBest
-                oldPersonalBest = existingScore.Item.personalBest || 0;
-                const scoreDiff = score - oldPersonalBest;
-
-                await docClient.send(
-                    new TransactWriteCommand({
-                        TransactItems: [
-                            {
-                                Update: {
-                                    TableName: process.env.MINIGAME_TABLE,
-                                    Key: { PK: userId, SK: scoreKey },
-                                    UpdateExpression:
-                                        "SET personalBest = :score, achievedAt = :now",
-                                    ExpressionAttributeValues: {
-                                        ":score": score,
-                                        ":now": newNow,
-                                    },
-                                },
-                            },
-                            {
-                                Update: {
-                                    TableName: process.env.MINIGAME_TABLE,
-                                    Key: { PK: userId, SK: `stats#${gameId}` },
-                                    UpdateExpression:
-                                        "ADD totalScore :diff SET lastUpdatedAt = :now, displayInfo = :info",
-                                    ExpressionAttributeValues: {
-                                        ":diff": scoreDiff,
-                                        ":now": newNow,
-                                        ":info": {
-                                            name: profile.information?.name,
-                                            avatarUrl: profile.information?.avatarUrl,
-                                            equippedFrame: profile.equippedCosmetics?.equippedFrame,
-                                        },
-                                    },
-                                },
-                            },
-                        ],
-                    })
-                );
-                scoreUpdated = true;
-            }
-        }
-
-        // Cập nhật profile budget
-        await docClient.send(
-            new UpdateCommand({
-                TableName: process.env.USER_TABLE,
-                Key: { PK: userId },
-                UpdateExpression:
-                    "SET budget.eCoin = :ecoin, budget.sanity = :sanity, updatedAt = :now",
-                ExpressionAttributeValues: {
-                    ":ecoin": newECoin,
-                    ":sanity": newSanity,
-                    ":now": newNow,
-                },
-            })
-        );
-
-        // ── Cập nhật quest progress ──
-        const questType =
-            gameId === "sudoku"
-                ? "PLAY_SUDOKU"
-                : gameId === "minesweeper"
-                    ? "PLAY_MINESWEEPER"
-                    : `PLAY_${gameId.toUpperCase()}`;
-
-        if (isWin) {
-            await updateQuestProgress(userId, questType, 1);
-        }
+        // 3. Trừ checkCount
+        const newCheckCount = session.checkCount - 1;
+        await docClient.send(new UpdateCommand({
+            TableName: process.env.MINIGAME_TABLE,
+            Key: { PK: userId, SK: "session#sudoku" },
+            UpdateExpression: "SET checkCount = :c",
+            ExpressionAttributeValues: { ":c": newCheckCount }
+        }));
 
         return successResponse({
-            isWin,
-            score,
-            scoreUpdated,
-            oldPersonalBest,
-            earnedECoin,
-            earnedSanity,
-            newBudget: {
-                eCoin: newECoin,
-                sanity: newSanity,
-            },
-            updatedAt: newNow,
+            success: true,
+            checkCount: newCheckCount,
+            isBoardCorrect: cheatResult.isBoardCorrect
         });
-    } catch (err) {
-        console.error("Lỗi endGame:", err);
-        return errorResponse(500, "Lỗi máy chủ nội bộ");
+
+    } catch (error) {
+        console.error("Lỗi kiểm tra bàn cờ:", error);
+        return errorResponse(500, "Lỗi máy chủ.");
+    }
+};
+
+// ═══════════════════════════════════════════════════════
+// POST /minigame/sudokulevels/end-session
+// ═══════════════════════════════════════════════════════
+const handleEndSudokuSession = async (event) => {
+    const userId = getUserId(event);
+    if (!userId) return errorResponse(401, "Unauthorized");
+
+    try {
+        const body = JSON.parse(event.body || "{}");
+        const { finalGrid, actionLogs, endState } = body;
+        const now = Date.now();
+
+        // 1. Lấy Session & Profile
+        const [sessionRes, profileRes] = await Promise.all([
+            docClient.send(new GetCommand({ TableName: process.env.MINIGAME_TABLE, Key: { PK: userId, SK: "session#sudoku" } })),
+            docClient.send(new GetCommand({ TableName: process.env.USER_TABLE, Key: { PK: userId } }))
+        ]);
+
+        const session = sessionRes.Item;
+        const profile = profileRes.Item;
+
+        if (!session || session.status !== "PENDING") return errorResponse(400, "Phiên chơi không hợp lệ.");
+
+        let budget = profile.budget;
+
+        // --- TRƯỜNG HỢP THUA HOẶC THOÁT RA ---
+        if (endState === "quit" || endState === "lost") {
+            const refundSanity = Math.floor(session.sanityCost * 0.5);
+            budget.sanity += refundSanity;
+
+            await Promise.all([
+                docClient.send(new UpdateCommand({
+                    TableName: process.env.USER_TABLE,
+                    Key: { PK: userId },
+                    UpdateExpression: "SET budget = :b",
+                    ExpressionAttributeValues: { ":b": budget }
+                })),
+                docClient.send(new UpdateCommand({
+                    TableName: process.env.MINIGAME_TABLE,
+                    Key: { PK: userId, SK: "session#sudoku" },
+                    UpdateExpression: "SET #st = :s",
+                    ExpressionAttributeNames: { "#st": "status" },
+                    ExpressionAttributeValues: { ":s": "CANCELLED" }
+                }))
+            ]);
+
+            return successResponse({ success: true, result: "lost", budget, refundSanity });
+        }
+
+        // --- TRƯỜNG HỢP NỘP BÀI (WIN) ---
+        // Kiểm tra cheat & full board
+        const cheatResult = checkSudokuCheat(session, actionLogs, finalGrid);
+        if (cheatResult.isCheat) return errorResponse(403, `Phát hiện gian lận: ${cheatResult.reason}`);
+        if (!cheatResult.isBoardCorrect || finalGrid.indexOf('0') !== -1) {
+            return errorResponse(400, "Bàn cờ giải chưa chính xác hoặc chưa hoàn thành.");
+        }
+
+        // Lấy thông tin Level để tính điểm
+        const levelRes = await docClient.send(new GetCommand({
+            TableName: process.env.MINIGAME_TABLE,
+            Key: { PK: "sudoku", SK: session.levelId }
+        }));
+        const level = levelRes.Item;
+        const emptyCellsCount = level.baseMapConfig.emptyCellsCount;
+        const timeSpentSeconds = Math.floor((now - session.startTime) / 1000);
+
+        // Công thức tính điểm
+        let score = level.maxScoreCap * (1 - Math.floor((timeSpentSeconds - emptyCellsCount * 5) / 10) * 0.01);
+        if (score < Math.floor(level.maxScoreCap * 0.1)) score = Math.floor(level.maxScoreCap * 0.1); // Điểm sàn 10%
+
+        let eCoinReward = level.eCoin || 0;
+
+        // Thưởng/Phạt theo checkCount
+        const maxCheckCount = 5;
+        if (session.checkCount === maxCheckCount) {
+            score = Math.floor(score * 1.5);
+            eCoinReward = Math.floor(eCoinReward * 1.5);
+        } else {
+            const lostChecks = maxCheckCount - session.checkCount;
+            score = Math.floor(score * Math.pow(0.95, lostChecks)); // Giảm 5% mỗi lượt mất
+        }
+
+        budget.eCoin += eCoinReward;
+
+        // Lấy Score cũ và Stats
+        const [oldScoreRes, statsRes] = await Promise.all([
+            docClient.send(new GetCommand({ TableName: process.env.MINIGAME_TABLE, Key: { PK: userId, SK: `score#sudoku#${session.levelId}` } })),
+            docClient.send(new GetCommand({ TableName: process.env.MINIGAME_TABLE, Key: { PK: userId, SK: "stats#sudoku" } }))
+        ]);
+
+        const oldScore = oldScoreRes.Item;
+        let stats = statsRes.Item || { PK: userId, SK: "stats#sudoku", gameId: "sudoku", totalScore: 0, levelsCompleted: 0 };
+
+        let isPB = false;
+        let scoreToSave = score;
+
+        if (!oldScore) {
+            isPB = true;
+            stats.levelsCompleted += 1;
+            stats.totalScore += score;
+        } else {
+            if (score > oldScore.personalBest) {
+                isPB = true;
+                stats.totalScore += (score - oldScore.personalBest); // Cộng thêm phần chênh lệch
+            } else {
+                scoreToSave = oldScore.personalBest; // Giữ nguyên điểm cũ nếu không qua PB
+            }
+        }
+
+        // Cập nhật Database (Dùng mảng Promise.all để song song)
+        await Promise.all([
+            // 1. Đổi status session
+            docClient.send(new UpdateCommand({
+                TableName: process.env.MINIGAME_TABLE,
+                Key: { PK: userId, SK: "session#sudoku" },
+                UpdateExpression: "SET #st = :s",
+                ExpressionAttributeNames: { "#st": "status" },
+                ExpressionAttributeValues: { ":s": "COMPLETED" }
+            })),
+            // 2. Lưu Score màn chơi
+            docClient.send(new PutCommand({
+                TableName: process.env.MINIGAME_TABLE,
+                Item: { PK: userId, SK: `score#sudoku#${session.levelId}`, personalBest: scoreToSave, achievedAt: Math.floor(now / 1000) }
+            })),
+            // 3. Lưu Stats tổng
+            docClient.send(new PutCommand({
+                TableName: process.env.MINIGAME_TABLE,
+                Item: { ...stats, lastUpdatedAt: Math.floor(now / 1000), displayInfo: { name: profile.information.name, avatarUrl: profile.information.avatarUrl, equippedFrame: profile.equippedCosmetics.equippedFrame } }
+            })),
+            // 4. Update Profile Budget
+            docClient.send(new UpdateCommand({
+                TableName: process.env.USER_TABLE,
+                Key: { PK: userId },
+                UpdateExpression: "SET budget = :b",
+                ExpressionAttributeValues: { ":b": budget }
+            }))
+        ]);
+
+        profile.budget = budget; // Cập nhật budget trả về frontend
+
+        return successResponse({
+            success: true,
+            result: "win",
+            score: score,
+            eCoinReward: eCoinReward,
+            isPB: isPB,
+            profile: profile,
+            stat: stats,
+            timeSpent: timeSpentSeconds
+        });
+
+    } catch (error) {
+        console.error("Lỗi nộp bài:", error);
+        return errorResponse(500, "Lỗi máy chủ.");
     }
 };
 
@@ -650,7 +661,8 @@ const handleLeaderboardWorker = async (event) => {
 export {
     handleGetSudokuLevels,
     handleStartSession,
-    handleEndGame,
+    handleCheckSudokuBoard,
+    handleEndSudokuSession,
     handleGetGlobalLeaderboard,
     handleGetFriendsLeaderboard,
     handleLeaderboardWorker,
