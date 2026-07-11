@@ -1,13 +1,5 @@
-﻿.rank-frame-inferno {
-  --rf-light: #fde68a;
-  --rf-mid: #f97316;
-  --rf-dark: #991b1b;
-  --rf-glow: rgba(239, 68, 68, 0.72);
-  --rf-gem: #fef08a;
-}
+.rank-frame-inferno { --rf-light: #fde68a; --rf-mid: #f97316; --rf-dark: #991b1b; --rf-glow: rgba(239, 68, 68, 0.72); --rf-gem: #fef08a; }
+.rank-frame-inferno .rf-wing { display: initial; }
 .rank-frame-inferno .rf-aura { animation: rf-inferno-pulse 1.25s ease-in-out infinite; }
 .rank-frame-inferno .rf-crown, .rank-frame-inferno .rf-wing { animation: rf-inferno-pulse 1.8s ease-in-out infinite; }
-@keyframes rf-inferno-pulse {
-  0%, 100% { filter: brightness(1) drop-shadow(0 0 3px #f97316); }
-  50% { filter: brightness(1.45) drop-shadow(0 0 12px #ef4444); }
-}
+@keyframes rf-inferno-pulse { 0%, 100% { filter: brightness(1) drop-shadow(0 0 3px #f97316); } 50% { filter: brightness(1.45) drop-shadow(0 0 12px #ef4444); } }

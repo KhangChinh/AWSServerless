@@ -1,1 +1,2 @@
-﻿.rank-frame-gold { --rf-light: #fff5c2; --rf-mid: #f7c33a; --rf-dark: #a9760f; --rf-glow: rgba(251, 191, 36, 0.55); --rf-gem: #fff7d6; }
+.rank-frame-gold { --rf-light: #fff5c2; --rf-mid: #f7c33a; --rf-dark: #a9760f; --rf-glow: rgba(251, 191, 36, 0.55); --rf-gem: #fff7d6; }
+.rank-frame-gold .rf-wing { display: initial; }

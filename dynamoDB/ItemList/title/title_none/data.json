@@ -1,0 +1,11 @@
+{
+  "PK": "item",
+  "SK": "title_none",
+  "itemType": "title",
+  "name": "None",
+  "rarity": 3,
+  "currencyType": null,
+  "price": null,
+  "collectorFrom": null,
+  "isLimited": false
+}

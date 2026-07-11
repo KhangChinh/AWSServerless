@@ -1,2 +1,2 @@
-﻿.rank-frame-neon { --rf-light: #f5d0fe; --rf-mid: #d946ef; --rf-dark: #86198f; --rf-glow: rgba(217, 70, 239, 0.6); --rf-gem: #f0abfc; }
+.rank-frame-neon { --rf-light: #f5d0fe; --rf-mid: #d946ef; --rf-dark: #86198f; --rf-glow: rgba(217, 70, 239, 0.6); --rf-gem: #f0abfc; }
 .rank-frame-neon .rf-aura { animation: rf-glow-pulse 1.8s ease-in-out infinite; }

@@ -1,0 +1,11 @@
+{
+    "PK": "item",
+    "SK": "title_collector",
+    "itemType":  "title",
+    "name": "Collector",
+    "rarity": 4,
+    "currencyType": null,
+    "price": null,
+    "collectorFrom": "gacha",
+    "isLimited": false
+}

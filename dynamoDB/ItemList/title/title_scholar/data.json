@@ -1,0 +1,11 @@
+{
+    "PK": "item",
+    "SK": "title_scholar",
+    "itemType": "title",
+    "name": "Scholar",
+    "rarity": 4,
+    "currencyType": "eCoin",
+    "price": 800,
+    "collectorFrom": "eCoinShop",
+    "isLimited": false
+}

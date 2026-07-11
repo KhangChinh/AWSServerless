@@ -1,0 +1,11 @@
+{
+    "PK": "item",
+    "SK": "frame_none",
+    "itemType": "frame",
+    "name": "None",
+    "rarity": 3,
+    "currencyType": null,
+    "price": 0,
+    "collectorFrom": null,
+    "isLimited": false
+}

@@ -1,0 +1,11 @@
+{
+    "PK": "item",
+    "SK": "title_newbie",
+    "itemType": "title",
+    "name": "Newbie",
+    "rarity": 4,
+    "currencyType": null,
+    "price": 0,
+    "collectorFrom": "eCoinShop",
+    "isLimited": false
+}

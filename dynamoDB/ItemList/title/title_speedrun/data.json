@@ -1,0 +1,11 @@
+{
+    "PK": "item",
+    "SK": "title_speedrun",
+    "itemType": "title",
+    "name": "Speed Runner",
+    "rarity": 4,
+    "currencyType": null,
+    "price": null,
+    "collectorFrom": "gacha",
+    "isLimited": false
+}

@@ -1,0 +1,11 @@
+{
+    "PK": "item",
+    "SK": "title_legend",
+    "itemType": "title",
+    "name": "Legend",
+    "rarity": 5,
+    "currencyType": null,
+    "price": null,
+    "collectorFrom": "gacha",
+    "isLimited": true
+}
