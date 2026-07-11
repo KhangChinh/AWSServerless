@@ -265,6 +265,7 @@ const checkSudokuCheat = (session, clientLogs, currentGridStr) => {
 
     // 2. Kiểm tra log nước đi cải tiến
     if (clientLogs && clientLogs.length > 1) {
+        clientLogs.sort((a, b) => a.timestamp - b.timestamp);
         let rapidBurstCount = 0;
 
         for (let i = 1; i < clientLogs.length; i++) {
