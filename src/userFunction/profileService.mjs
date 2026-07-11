@@ -14,6 +14,8 @@ const handleInitUser = async (event) => {
     const now = Date.now();
     const defaultItemsConfig = {
         background: "bg_default",
+        frame: "frame_none",
+        title: "title_none",
     };
     const defaultItemSKs = Object.values(defaultItemsConfig);
     let systemItems = [];
@@ -80,7 +82,7 @@ const handleInitUser = async (event) => {
             equippedBackground: defaultItemsConfig.background || null,
             equippedButton: defaultItemsConfig.button || null,
             equippedFrame: defaultItemsConfig.frame || null,
-            equippedTitles: [],
+            equippedTitles: defaultItemsConfig.title ? [defaultItemsConfig.title] : [],
         },
         inventoryUpdatedAt: now,
         gachaHistoryUpdatedAt: now,
@@ -170,11 +172,12 @@ const handleEquipCosmetics = async (event) => {
         }
 
         // Xây danh sách các SK cần kiểm tra sở hữu
+        const defaultCosmeticIds = new Set(["frame_none", "title_none"]);
         const itemsToCheck = [{ PK: userId, SK: backgroundId }];
-        if (frameId) itemsToCheck.push({ PK: userId, SK: frameId });
+        if (frameId && !defaultCosmeticIds.has(frameId)) itemsToCheck.push({ PK: userId, SK: frameId });
         if (titles && titles.length > 0) {
             for (const t of titles) {
-                itemsToCheck.push({ PK: userId, SK: t });
+                if (!defaultCosmeticIds.has(t)) itemsToCheck.push({ PK: userId, SK: t });
             }
         }
 
@@ -193,6 +196,7 @@ const handleEquipCosmetics = async (event) => {
         const ownedSet = new Set(
             (batchResult.Responses?.[process.env.INVENTORY_TABLE] || []).map((i) => i.SK)
         );
+        defaultCosmeticIds.forEach((id) => ownedSet.add(id));
 
         if (!ownedSet.has(backgroundId)) {
             return errorResponse(403, "Bạn không sở hữu Background này");
