@@ -1,11 +1,11 @@
 ﻿{
-    "collectorFrom": "eCoinShop",
-    "price": 600,
+    "PK": "item",
     "SK": "frame_iron",
     "itemType": "frame",
-    "PK": "item",
-    "isLimited": false,
-    "currencyType": "eCoin",
     "name": "Iron Guard",
-    "rarity": 4
+    "rarity": 3,
+    "currencyType": "eCoin",
+    "price": 600,
+    "collectFrom": "eCoinShop",
+    "isLimited": false
 }

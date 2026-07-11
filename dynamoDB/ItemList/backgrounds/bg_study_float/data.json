@@ -3,7 +3,7 @@
   "SK": "bg_study_float",
   "itemType": "background",
   "name": "Study Float",
-  "rarity": "4-5",
+  "rarity": 5,
   "currencyType": "eCoin",
   "price": 500,
   "collectorFrom": "eCoinShop",

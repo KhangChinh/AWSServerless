@@ -1,11 +1,11 @@
 ﻿{
-    "collectorFrom": "gacha",
-    "price": null,
+    "PK": "item",
     "SK": "frame_diamond",
     "itemType": "frame",
-    "PK": "item",
-    "isLimited": false,
-    "currencyType": null,
     "name": "Diamond Ascendant",
-    "rarity": 5
+    "rarity": 5,
+    "currencyType": null,
+    "price": null,
+    "collectFrom": "gacha",
+    "isLimited": true
 }

@@ -1,11 +1,11 @@
 ﻿{
-    "collectorFrom": "gacha",
-    "price": null,
+    "PK": "item",
     "SK": "frame_inferno",
     "itemType": "frame",
-    "PK": "item",
-    "isLimited": true,
-    "currencyType": null,
     "name": "Inferno Sovereign",
-    "rarity": 5
+    "rarity": 5,
+    "currencyType": null,
+    "price": null,
+    "collectFrom": "gacha",
+    "isLimited": true
 }

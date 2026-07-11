@@ -1,11 +1,11 @@
 ﻿{
-    "collectorFrom": "eCoinShop",
-    "price": 1800,
+    "PK": "item",
     "SK": "frame_platinum",
     "itemType": "frame",
-    "PK": "item",
-    "isLimited": false,
-    "currencyType": "eCoin",
     "name": "Platinum Crest",
-    "rarity": 4
+    "rarity": 5,
+    "currencyType": null,
+    "price": null,
+    "collectFrom": "gacha",
+    "isLimited": true
 }
