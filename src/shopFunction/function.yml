@@ -4,7 +4,6 @@ refresheCoinShop:
     # Cú pháp cron: cron(Phút Giờ Ngày-trong-tháng Tháng Ngày-trong-tuần Năm)
     # 0 17 ? * SUN * = 17:00 Chủ Nhật hàng tuần (UTC) = 00:00 Thứ 2 hàng tuần (Giờ VN)
     - schedule: 
-        name: eCoin-shop-weekly-refresh
         description: Trigger refresh shop moi tuan vao 0h sang Thu 2 gio VN
         rate: cron(0 17 ? * SUN *)
 
