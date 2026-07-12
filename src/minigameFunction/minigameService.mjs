@@ -523,7 +523,45 @@ const handleEndSudokuSession = async (event) => {
         ]);
 
         profile.budget = budget; // Cập nhật budget trả về frontend
+        const levelParams = {
+            TableName: process.env.MINIGAME_TABLE,
+            KeyConditionExpression: "PK = :gid",
+            ExpressionAttributeValues: { ":gid": "sudoku" },
+            Limit: 10,
+        };
+        const levelsResult = await docClient.send(new QueryCommand(levelParams));
+        const fetchedLevels = levelsResult.Items || [];
 
+        let finalLevels = [];
+        if (fetchedLevels.length > 0) {
+            const scoreKeys = fetchedLevels.map((lvl) => ({
+                PK: userId,
+                SK: `score#sudoku#${lvl.SK}`,
+            }));
+
+            const batchResult = await docClient.send(
+                new BatchGetCommand({
+                    RequestItems: {
+                        [process.env.MINIGAME_TABLE]: { Keys: scoreKeys },
+                    },
+                })
+            );
+
+            let scoreMap = {};
+            const userScores = batchResult.Responses?.[process.env.MINIGAME_TABLE] || [];
+            for (const item of userScores) {
+                const lvlId = item.SK.replace(`score#sudoku#`, "");
+                scoreMap[lvlId] = {
+                    personalBest: item.personalBest,
+                    achievedAt: item.achievedAt,
+                };
+            }
+
+            finalLevels = fetchedLevels.map((lvl) => ({
+                ...lvl,
+                score: scoreMap[lvl.SK] || null,
+            }));
+        }
         return successResponse({
             success: true,
             result: "win",
@@ -532,7 +570,9 @@ const handleEndSudokuSession = async (event) => {
             isPB: isPB,
             profile: profile,
             stat: stats,
-            timeSpent: timeSpentSeconds
+            timeSpent: timeSpentSeconds,
+            levels: finalLevels,
+            lastEvaluatedKey: levelsResult.LastEvaluatedKey || null
         });
 
     } catch (error) {
