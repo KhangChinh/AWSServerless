@@ -34,20 +34,11 @@ endSudokuSession:
         authorizer:
           name: myCognitoAuth
 
-getGlobalLeaderboard:
-  handler: src/minigameFunction/minigameService.handleGetGlobalLeaderboard
+getLeaderboard:
+  handler: src/minigameFunction/minigameService.handleGetLeaderboard
   events:
     - httpApi:
-        path: /minigame/leaderboard/global
-        method: get
-        authorizer:
-          name: myCognitoAuth
-
-getFriendsLeaderboard:
-  handler: src/minigameFunction/minigameService.handleGetFriendsLeaderboard
-  events:
-    - httpApi:
-        path: /minigame/leaderboard/friends
+        path: /minigame/leaderboard
         method: get
         authorizer:
           name: myCognitoAuth

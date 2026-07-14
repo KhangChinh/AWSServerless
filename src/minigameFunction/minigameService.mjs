@@ -582,156 +582,81 @@ const handleEndSudokuSession = async (event) => {
 };
 
 // ═══════════════════════════════════════════════════════
-// GET /minigame/leaderboard/global?gameId=sudoku
-// ═══════════════════════════════════════════════════════
-const handleGetGlobalLeaderboard = async (event) => {
-    const userId = getUserId(event);
-    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
-
-    try {
-        const gameId = event.queryStringParameters?.gameId;
-        if (!gameId) return await syncedErrorResponse(getUserId(event), 400, "gameId là bắt buộc");
-
-        const result = await docClient.send(
-            new GetCommand({
-                TableName: process.env.MINIGAME_TABLE,
-                Key: { PK: "globalLeaderboard", SK: gameId },
-            })
-        );
-
-        if (!result.Item) {
-            return successResponse({ leaderboard: [], gameId });
-        }
-
-        return successResponse({ leaderboard: result.Item.entries || [], gameId });
-    } catch (err) {
-        console.error("Lỗi getGlobalLeaderboard:", err);
-        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
-    }
-};
-
-// ═══════════════════════════════════════════════════════
-// GET /minigame/leaderboard/friends?gameId=sudoku
-// ═══════════════════════════════════════════════════════
-const handleGetFriendsLeaderboard = async (event) => {
-    const userId = getUserId(event);
-    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
-
-    try {
-        const gameId = event.queryStringParameters?.gameId;
-        if (!gameId) return await syncedErrorResponse(getUserId(event), 400, "gameId là bắt buộc");
-
-        // Lấy danh sách bạn bè ACCEPTED
-        const friendsResult = await docClient.send(
-            new QueryCommand({
-                TableName: process.env.SOCIAL_TABLE,
-                KeyConditionExpression: "PK = :uid",
-                FilterExpression: "#s = :accepted",
-                ExpressionAttributeNames: { "#s": "status" },
-                ExpressionAttributeValues: {
-                    ":uid": userId,
-                    ":accepted": "ACCEPTED",
-                },
-            })
-        );
-
-        const friendIds = (friendsResult.Items || []).map((f) => f.SK);
-        const allIds = [userId, ...friendIds]; // bao gồm bản thân
-
-        if (allIds.length === 0) {
-            return successResponse({ leaderboard: [], gameId });
-        }
-
-        // BatchGetItem stats của tất cả, hỗ trợ > 100 bằng chunking
-        const statsKeys = allIds.map((id) => ({ PK: id, SK: `stats#${gameId}` }));
-        let statsItems = [];
-
-        const BATCH_SIZE = 100;
-        for (let i = 0; i < statsKeys.length; i += BATCH_SIZE) {
-            const batchKeys = statsKeys.slice(i, i + BATCH_SIZE);
-            const batchResult = await docClient.send(
-                new BatchGetCommand({
-                    RequestItems: {
-                        [process.env.MINIGAME_TABLE]: { Keys: batchKeys },
-                    },
-                })
-            );
-            const items = batchResult.Responses?.[process.env.MINIGAME_TABLE] || [];
-            statsItems.push(...items);
-        }
-
-        // Sort theo totalScore giảm dần, lấy top 10
-        const sorted = statsItems
-            .sort((a, b) => (b.totalScore || 0) - (a.totalScore || 0))
-            .slice(0, 10)
-            .map((item, index) => ({
-                rank: index + 1,
-                userId: item.PK,
-                totalScore: item.totalScore || 0,
-                levelsCompleted: item.levelsCompleted || 0,
-                lastUpdatedAt: item.lastUpdatedAt,
-                displayInfo: item.displayInfo || {},
-            }));
-
-        return successResponse({ leaderboard: sorted, gameId });
-    } catch (err) {
-        console.error("Lỗi getFriendsLeaderboard:", err);
-        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
-    }
-};
-
-// ═══════════════════════════════════════════════════════
-// EventBridge trigger (cron mỗi 10 phút)
-// Tính toán và ghi đè globalLeaderboard
+// WORKER: TỰ ĐỘNG TẠO / GHI ĐÈ BẢNG XẾP HẠNG (Chạy mỗi 10p)
 // ═══════════════════════════════════════════════════════
 const handleLeaderboardWorker = async (event) => {
     try {
-        const gameIds = ["sudoku", "minesweeper"];
-        const now = Date.now();
+        console.log("Bắt đầu chạy Worker cập nhật Leaderboard Sudoku...");
 
-        for (const gameId of gameIds) {
-            // Query GSI: gameId = gameId, sắp xếp totalScore giảm dần
-            // Giả định có GSI với PK=gameId, SK=totalScore (hoặc sort bằng code)
-            const result = await docClient.send(
-                new QueryCommand({
-                    TableName: process.env.MINIGAME_TABLE,
-                    IndexName: "gameId-totalScore-index",
-                    KeyConditionExpression: "gameId = :gid",
-                    ExpressionAttributeValues: { ":gid": gameId },
-                    ScanIndexForward: false, // giảm dần
-                    Limit: 10,
-                })
-            );
+        // 1. Quét toàn bộ Stats của game Sudoku
+        // (Lưu ý: Nếu data lớn, nên dùng GSI thay vì Scan. Ở đây dùng Scan theo cấu trúc hiện tại)
+        const scanParams = {
+            TableName: process.env.MINIGAME_TABLE,
+            FilterExpression: "SK = :sk",
+            ExpressionAttributeValues: {
+                ":sk": "stats#sudoku"
+            }
+        };
 
-            const topPlayers = (result.Items || []).map((item, index) => ({
-                rank: index + 1,
-                userId: item.PK,
-                totalScore: item.totalScore || 0,
-                levelsCompleted: item.levelsCompleted || 0,
-                lastUpdatedAt: item.lastUpdatedAt,
-                displayInfo: item.displayInfo || {},
+        const result = await docClient.send(new ScanCommand(scanParams));
+        const allStats = result.Items || [];
+
+        // 2. Sắp xếp điểm từ cao xuống thấp và lấy Top 10
+        const top10Players = allStats
+            .sort((a, b) => b.totalScore - a.totalScore)
+            .slice(0, 10)
+            .map(stat => ({
+                userId: stat.PK,
+                totalScore: stat.totalScore,
+                levelsCompleted: stat.levelsCompleted,
+                displayInfo: stat.displayInfo || { name: "Unknown", avatarUrl: "", equippedFrame: null }
             }));
 
-            // Ghi đè vào globalLeaderboard — dùng static PutCommand
-            await docClient.send(
-                new PutCommand({
-                    TableName: process.env.MINIGAME_TABLE,
-                    Item: {
-                        PK: "globalLeaderboard",
-                        SK: gameId,
-                        entries: topPlayers,
-                        updatedAt: now,
-                    },
-                })
-            );
+        // 3. Chuẩn bị Object để lưu đè vào DynamoDB
+        const leaderboardData = {
+            PK: "leaderboard",
+            SK: "sudoku",
+            topPlayers: top10Players,
+            updatedAt: Math.floor(Date.now() / 1000)
+        };
 
-            console.log(`Updated globalLeaderboard for ${gameId} with ${topPlayers.length} players`);
+        // 4. Lưu / Ghi đè vào DynamoDB
+        await docClient.send(new PutCommand({
+            TableName: process.env.MINIGAME_TABLE,
+            Item: leaderboardData
+        }));
+
+        console.log("Cập nhật Leaderboard Sudoku thành công!", leaderboardData);
+        return { statusCode: 200, body: "Success" };
+    } catch (err) {
+        console.error("Lỗi khi chạy Leaderboard Worker:", err);
+        throw err;
+    }
+};
+
+// ═══════════════════════════════════════════════════════
+// GET /minigame/leaderboard?gameId=sudoku
+// ═══════════════════════════════════════════════════════
+const handleGetLeaderboard = async (event) => {
+    const userId = getUserId(event);
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
+
+    try {
+        const gameId = event.queryStringParameters?.gameId;
+
+        const result = await docClient.send(new GetCommand({
+            TableName: process.env.MINIGAME_TABLE,
+            Key: { PK: "leaderboard", SK: gameId }
+        }));
+
+        if (!result.Item) {
+            return successResponse({ topPlayers: [], updatedAt: null });
         }
 
-        return { statusCode: 200, body: "Leaderboard updated" };
+        return successResponse(result.Item);
     } catch (err) {
-        console.error("Lỗi leaderboardWorker:", err);
-        throw err;
+        console.error("Lỗi khi lấy Leaderboard:", err);
+        return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
 
@@ -740,7 +665,6 @@ export {
     handleStartSession,
     handleCheckSudokuBoard,
     handleEndSudokuSession,
-    handleGetGlobalLeaderboard,
-    handleGetFriendsLeaderboard,
     handleLeaderboardWorker,
+    handleGetLeaderboard
 };
