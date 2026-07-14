@@ -5,6 +5,7 @@ import {
     UpdateCommand,
     TransactWriteCommand,
     BatchGetCommand,
+    ScanCommand,
 } from "@aws-sdk/lib-dynamodb";
 import crypto from "crypto";
 import { docClient } from "../database.mjs";
