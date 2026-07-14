@@ -1,9 +1,13 @@
 import { GetCommand, UpdateCommand, BatchGetCommand, BatchWriteCommand, } from "@aws-sdk/lib-dynamodb";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3"
 import { docClient } from "../database.mjs";
 import { successResponse } from "../response.mjs";
 import { syncedErrorResponse } from "../errorSync.mjs";
 import { refreshDaily } from "../syncFunction/syncService.mjs";
 import { mapCosmeticAssets } from "../syncFunction/syncService.mjs"
+
+const s3Client = new S3Client({ region: process.env.AWS_REGION });
+
 const getUserId = (event) => {
     const auth = event.requestContext?.authorizer;
     return auth?.jwt?.claims?.sub || auth?.claims?.sub || null;
@@ -251,8 +255,100 @@ const handleEquipCosmetics = async (event) => {
     }
 };
 
+const handleUploadAvatar = async (event) => {
+    const userId = getUserId(event);
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
+
+    try {
+        const body = JSON.parse(event.body || "{}");
+        const { imageBody, contentType } = body;
+
+        if (!imageBody || !contentType) {
+            return await syncedErrorResponse(userId, 400, "Thiếu dữ liệu ảnh");
+        }
+
+        const now = Date.now();
+
+        // 1. Lấy profile để kiểm tra tiền
+        const profileResult = await docClient.send(
+            new GetCommand({
+                TableName: process.env.USER_TABLE,
+                Key: { PK: userId },
+            })
+        );
+        let currentProfile = profileResult.Item;
+
+        if (!currentProfile) {
+            return await syncedErrorResponse(userId, 404, "Không tìm thấy người dùng");
+        }
+
+        // 2. Nếu KHÔNG ĐỦ TIỀN -> Trả về profile hiện tại để frontend đồng bộ
+        if (currentProfile.budget.eCoin < 500) {
+            currentProfile = await mapCosmeticAssets(currentProfile);
+            return successResponse({
+                success: false,
+                message: "Không đủ 500 eCoin",
+                profile: currentProfile // Vẫn trả về để frontend chạy ingestServerData
+            });
+        }
+
+        // 3. ĐỦ TIỀN -> Bắt đầu Upload lên S3
+        const extension = contentType === 'image/png' ? 'png' : 'jpg'; // Chuẩn hóa extension
+        const s3KeyPath = `public-assets/avatars/${userId}.${extension}`;
+
+        const buffer = Buffer.from(imageBody, 'base64');
+
+        await s3Client.send(new PutObjectCommand({
+            Bucket: process.env.ASSETS_BUCKET,
+            Key: s3KeyPath,
+            Body: buffer,
+            ContentType: contentType,
+            // CacheControl: "max-age=31536000" // Có thể thêm nếu muốn trình duyệt cache lâu
+        }));
+
+        // 4. Trừ tiền và cập nhật URL trong DynamoDB
+        // Thêm timestamp vào đuôi URL để ép Frontend + Trình duyệt load lại ảnh (Bypass cache)
+        const updatedAvatarUrl = `avatars/${userId}.${extension}?t=${now}`;
+
+        const updateResult = await docClient.send(
+            new UpdateCommand({
+                TableName: process.env.USER_TABLE,
+                Key: { PK: userId },
+                UpdateExpression: "SET budget.eCoin = budget.eCoin - :cost, information.avatarUrl = :avatarUrl, avatarUpdatedAt = :now, updatedAt = :now",
+                // Đảm bảo không bị race-condition (trừ âm tiền) bằng ConditionExpression
+                ConditionExpression: "budget.eCoin >= :cost",
+                ExpressionAttributeValues: {
+                    ":cost": 500,
+                    ":avatarUrl": updatedAvatarUrl,
+                    ":now": now
+                },
+                ReturnValues: "ALL_NEW"
+            })
+        );
+
+        let updatedProfile = updateResult.Attributes;
+        updatedProfile = await mapCosmeticAssets(updatedProfile);
+
+        // 5. Trả về thành công
+        return successResponse({
+            success: true,
+            message: "Cập nhật ảnh đại diện thành công",
+            profile: updatedProfile,
+        });
+
+    } catch (error) {
+        console.error("Lỗi upload avatar:", error);
+        // Bắt lỗi ConditionExpression (nếu user click liên tục 2 lần)
+        if (error.name === "ConditionalCheckFailedException") {
+            return await syncedErrorResponse(userId, 400, "Không đủ eCoin hoặc giao dịch quá nhanh.");
+        }
+        return await syncedErrorResponse(userId, 500, "Lỗi máy chủ nội bộ");
+    }
+};
+
 export {
     handleInitUser,
     handleUpdateProfile,
     handleEquipCosmetics,
+    handleUploadAvatar,
 }

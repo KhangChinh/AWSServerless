@@ -15,24 +15,6 @@ updateProfile:
         authorizer:
           name: myCognitoAuth
 
-presignAvatar:
-  handler: src/userFunction/avatarService.handlePresignAvatar
-  events:
-    - httpApi:
-        path: /avatar/presign
-        method: post
-        authorizer:
-          name: myCognitoAuth
-
-confirmAvatar:
-  handler: src/userFunction/avatarService.handleConfirmAvatar
-  events:
-    - httpApi:
-        path: /avatar/confirm
-        method: post
-        authorizer:
-          name: myCognitoAuth
-
 equipCosmetics:
   handler: src/userFunction/profileService.handleEquipCosmetics
   events:
@@ -42,3 +24,11 @@ equipCosmetics:
         authorizer:
           name: myCognitoAuth
 
+updateAvatar:
+  handler: src/userFunction/profileService.handleUploadAvatar
+  events:
+    - httpApi:
+        path: /update-avatar
+        method: post
+        authorizer:
+          name: myCognitoAuth
