@@ -588,8 +588,7 @@ const handleLeaderboardWorker = async (event) => {
     try {
         console.log("Bắt đầu chạy Worker cập nhật Leaderboard Sudoku...");
 
-        // 1. Quét toàn bộ Stats của game Sudoku
-        // (Lưu ý: Nếu data lớn, nên dùng GSI thay vì Scan. Ở đây dùng Scan theo cấu trúc hiện tại)
+        // 1. Quét toàn bộ Stats (Có thể dùng Query nếu setup GSI, hiện dùng Scan)
         const scanParams = {
             TableName: process.env.MINIGAME_TABLE,
             FilterExpression: "SK = :sk",
@@ -601,7 +600,7 @@ const handleLeaderboardWorker = async (event) => {
         const result = await docClient.send(new ScanCommand(scanParams));
         const allStats = result.Items || [];
 
-        // 2. Sắp xếp điểm từ cao xuống thấp và lấy Top 10
+        // 2. Sắp xếp lấy Top 10
         const top10Players = allStats
             .sort((a, b) => b.totalScore - a.totalScore)
             .slice(0, 10)
@@ -612,21 +611,24 @@ const handleLeaderboardWorker = async (event) => {
                 displayInfo: stat.displayInfo || { name: "Unknown", avatarUrl: "", equippedFrame: null }
             }));
 
-        // 3. Chuẩn bị Object để lưu đè vào DynamoDB
+        // 3. Tính toán expiresAt: thời điểm hiện tại + 11 phút (tính bằng giây)
+        const expiresAt = Math.floor(Date.now() / 1000) + (11 * 60);
+
+        // 4. Object lưu đè vào DynamoDB
         const leaderboardData = {
             PK: "leaderboard",
             SK: "sudoku",
             topPlayers: top10Players,
-            updatedAt: Math.floor(Date.now() / 1000)
+            expiresAt: expiresAt // Dùng expiresAt thay cho updatedAt
         };
 
-        // 4. Lưu / Ghi đè vào DynamoDB
+        // 5. Lưu xuống DynamoDB
         await docClient.send(new PutCommand({
             TableName: process.env.MINIGAME_TABLE,
             Item: leaderboardData
         }));
 
-        console.log("Cập nhật Leaderboard Sudoku thành công!", leaderboardData);
+        console.log("Cập nhật Leaderboard Sudoku thành công! expiresAt:", expiresAt);
         return { statusCode: 200, body: "Success" };
     } catch (err) {
         console.error("Lỗi khi chạy Leaderboard Worker:", err);
