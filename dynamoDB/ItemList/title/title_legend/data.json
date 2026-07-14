@@ -6,6 +6,6 @@
     "rarity": 5,
     "currencyType": null,
     "price": null,
-    "collectorFrom": "gacha",
+    "collectFrom": "gacha",
     "isLimited": true
 }

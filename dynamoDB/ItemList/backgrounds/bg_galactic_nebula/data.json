@@ -1,11 +1,11 @@
 {
   "PK": "item",
-  "SK": "galactic_nebula",
+  "SK": "bg_galactic_nebula",
   "itemType": "background",
   "name": "Galactic Nebula",
   "rarity": 5,
   "currencyType": null,
   "price": null,
-  "collectorFrom": "gacha",
+  "collectFrom": "gacha",
   "isLimited": false
 }

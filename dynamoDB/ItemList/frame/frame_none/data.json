@@ -6,6 +6,6 @@
     "rarity": 3,
     "currencyType": null,
     "price": 0,
-    "collectorFrom": null,
+    "collectFrom": null,
     "isLimited": false
 }

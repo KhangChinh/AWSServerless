@@ -44,7 +44,7 @@ Mẫu bắt buộc:
   "rarity": "",
   "currencyType": null,
   "price": 0,
-  "collectorFrom": "",
+  "collectFrom": "",
   "isLimited": false
 }
 
@@ -74,5 +74,5 @@ thông tin của item:
 - rarity: "4-5"
 - currencyType: "eCoin" hoặc null
 - price: số tiền hoặc null
-- collectorFrom: "gacha" hoặc "eCoinShop"
+- collectFrom: "gacha" hoặc "eCoinShop"
 - isLimited: true hoặc false

@@ -3,9 +3,9 @@
     "SK": "title_newbie",
     "itemType": "title",
     "name": "Newbie",
-    "rarity": 4,
+    "rarity": 3,
     "currencyType": null,
     "price": 0,
-    "collectorFrom": "eCoinShop",
+    "collectFrom": "eCoinShop",
     "isLimited": false
 }

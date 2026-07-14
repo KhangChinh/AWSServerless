@@ -6,6 +6,6 @@
     "rarity": 4,
     "currencyType": "eCoin",
     "price": 800,
-    "collectorFrom": "eCoinShop",
+    "collectFrom": "eCoinShop",
     "isLimited": false
 }
