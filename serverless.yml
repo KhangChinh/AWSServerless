@@ -1,5 +1,11 @@
 service: aws-uchimi
 useDotenv: true
+plugins:
+  - serverless-api-gateway-throttling
+custom:
+  apiGatewayThrottling:
+    maxRequestsPerSecond: 50
+    maxConcurrentRequests: 20
 build:
   esbuild:
     bundle: true
