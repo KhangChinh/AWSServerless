@@ -427,6 +427,20 @@ const handleGetMasterData = async (event) => {
     }
 };
 
+const handleCheckVersion = async (event) => {
+    try {
+        const currentVersion = process.env.VERSION || null;
+        return successResponse({
+            version: currentVersion,
+            timestamp: Date.now()
+        });
+    } catch (err) {
+        console.error("Lỗi checkVersion:", err);
+        // Do endpoint này có thể gọi khi chưa đăng nhập, ta không cần truyền getUserId(event)
+        return await syncedErrorResponse(null, 500, "Lỗi máy chủ nội bộ");
+    }
+};
+
 export {
     refreshDaily,
     getOrRefreshDaily,
@@ -437,5 +451,6 @@ export {
     handleSyncSocial,
     handleGetMasterData,
     mapCosmeticAssets,
-    fetchInventoryPage
+    fetchInventoryPage,
+    handleCheckVersion
 };

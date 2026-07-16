@@ -51,3 +51,10 @@ getMasterData:
         method: get
         authorizer:
           name: myCognitoAuth
+
+checkVersion:
+  handler: src/syncFunction/syncService.handleCheckVersion
+  events:
+    - httpApi:
+        path: /version
+        method: get
