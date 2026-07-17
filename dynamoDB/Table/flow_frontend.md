@@ -1,184 +1,246 @@
-khi người dùng đăng nhập, gọi /get-profile lấy thông tin người dùng về, fe lưu thông tin vào electron store mã hóa bằng safe storage, lưu vào redux và update state để render ra màn hình từ dữ liệu của redux
+# Flow Frontend (AWSStudy-Play → AWS-Serverless)
 
-khi đăng nhập thành công sẽ gọi /sync-all để lấy tất cả thông tin của người dùng về máy,
+---
 
-có nút để ấn chỉnh sửa tên ở frontend, khi ấn đổi tên, validate giống với backend mới đc gọi API PUT /update-profile, body: { name }, hàm trả về thành công thì backend sẽ trả 1 profile.json mới, frontend lưu đè vào electron store mã hóa bằng safe storage, lưu vào redux và update state để render ra màn hình từ dữ liệu của redux (không cần gọi lại get profile).
+## KHỞI ĐỘNG APP & ĐỒNG BỘ DỮ LIỆU
 
-mỗi khi mở app (sau đăng nhập), hoặc khi app từ background trở lại (sau khi đã check qua lasted fetch với redux), fe gọi POST /sync-all, body gửi lên: { updatedAt, inventoryUpdatedAt, gachaHistoryUpdatedAt, friendUpdatedAt, getDaily }. lần đầu mở app thì gửi tất cả = null, backend sẽ trả về đầy đủ: profile, inventory (60 item đầu tiên), gachaHistory, friends, daily. từ lần sau fe gửi kèm các timestamp đã lưu trong redux, backend so sánh từng mốc thời gian với profile hiện tại trên DB: module nào timestamp khác thì trả dữ liệu mới, module nào giống thì bỏ qua. fe nhận response, phần nào có dữ liệu thì lưu đè vào electron store + redux. phần nào không có (undefined) thì giữ nguyên dữ liệu cũ.
+khi người dùng đăng nhập, flow khởi động:
+1. gọi `GET /version` kiểm tra phiên bản server. nếu version thay đổi so với bản lưu local → xóa cache masterData và shop trong electron-store
+2. gọi `POST /sync-all` với body: `{ getProfile: true, getDaily: true, getInventory: true, getGachaHistory: true, getSocial: true }`. backend trả tất cả dữ liệu trang 1
+3. fe lưu response vào redux + electron-store thông qua hàm `ingestServerData()`
+4. gọi `GET /master-data` lấy danh sách item tĩnh. fe lưu vào electron-store dưới dạng itemDictionary (key là SK của item)
+5. load asset giao diện từ equippedCosmetics đã map
 
-xử lý daily trong sync-all: backend luôn gọi hàm refresh daily để kiểm tra. nếu daily hết hạn thì tạo daily mới và luôn trả về cho client. nếu daily chưa hết hạn thì dựa vào cờ getDaily từ client để quyết định có gửi daily trong response hay không.
+khi mở app lại (đã đăng nhập):
+1. hydrate redux từ electron-store trước (hiển thị UI ngay lập tức không cần đợi API)
+2. kiểm tra `lastSyncAll` trong localStorage + redux (cooldown 5 phút):
+   - cache fresh + đầy đủ (profile + daily + inventory + gachaHistory + social) → dùng cache, không gọi API
+   - cache stale hoặc thiếu module → gọi `POST /sync-all` chỉ với cờ của module cần refresh
+3. module nào server trả → `ingestServerData()` ghi đè vào redux + electron-store. Module nào không trả → giữ nguyên cache
 
-response trả về có dạng:
-- profile: object profile đầy đủ (kèm cosmeticAssets đã map sẵn assetUrl từ bảng ItemData)
-- inventory: mảng 60 item đầu tiên, inventoryLastKey (nếu có thì còn trang tiếp)
-- gachaHistory: mảng 30 lịch sử đầu tiên, gachaHistoryLastKey
-- friends: mảng 15 bạn bè đầu tiên (PENDING_IN, PENDING_OUT, ACCEPTED), friendsLastKey
-- daily: object daily quest hiện tại (nếu có)
+khi app từ tray trở lại: áp dụng logic `lastSyncAll` 5 phút giống trên.
+
+response sync-all có dạng:
+- `profile`: object profile đầy đủ (equippedCosmetics đã map sang object có { id, name, imageUrl, assets })
+- `inventory`: object dạng `{ background: { items: [...], lastEvaluatedKey }, frame: {...}, ... }`. mỗi loại 10 item/trang
+- `gachaHistory`: mảng 30 bản ghi đầu tiên, `gachaHistoryLastKey`
+- `social`: mảng 10 bạn bè đầu tiên, `socialLastKey`
+- `daily`: object daily quest hiện tại (nếu có)
 
 khi cần load thêm trang (infinite scroll), fe gọi riêng từng API:
-- GET /sync-inventory?lastKey=... → trả về { inventory, lastEvaluatedKey }. mỗi trang 60 item.
-- GET /sync-gacha-history?lastKey=... → trả về { gachaHistory, lastEvaluatedKey }. mỗi trang 30 bản ghi.
-- GET /sync-friends?lastKey=... → trả về { friends, lastEvaluatedKey }. mỗi trang 15 bạn bè.
-lastKey là JSON string đã encodeURIComponent, lấy từ lastEvaluatedKey của response trước. khi lastEvaluatedKey = null thì hết dữ liệu.
+- `GET /sync-inventory?itemType=background&lastKey=...` → trả `{ inventory, lastEvaluatedKey }`. mỗi trang 10 item, query qua GSI ItemTypeIndex
+- `GET /sync-gacha-history?lastKey=...` → trả `{ gachaHistory, lastEvaluatedKey }`. mỗi trang 30 bản ghi
+- `GET /sync-social?lastKey=...` → trả `{ social, lastEvaluatedKey }`. mỗi trang 10 bạn bè
+- lastKey là JSON string đã `encodeURIComponent`, lấy từ lastEvaluatedKey của response trước. khi `lastEvaluatedKey = null` thì hết dữ liệu
 
-GET /sync-profile → fe gọi khi cần lấy lại profile mới nhất (ít dùng, thường sync-all đã đủ). response: { profile } (đã map cosmeticAssets).
+`GET /sync-profile` → trả `{ profile }` (đã map cosmeticAssets). ít dùng, thường sync-all đã đủ.
 
-GET /master-data → gọi 1 lần khi mở app, trả về { items } là mảng tất cả item trong game (background, frame, button, title...). fe lưu vào electron store dưới dạng itemDictionary (key là SK của item), dùng để hiển thị thông tin item ở inventory, shop, gacha... không cần gọi lại trừ khi user logout rồi login lại. server có cache nội bộ nên gọi nhiều cũng không tốn.
+`GET /master-data` → gọi 1 lần khi mở app, trả `{ items }` là mảng tất cả item trong game. server có cache Lambda memory nên gọi nhiều cũng không tốn.
 
---- AVATAR ---
+---
 
-đổi ảnh đại diện có cooldown 7 ngày, fe phải check avatarUpdatedAt trong profile để hiển thị cooldown còn lại, disable nút đổi ảnh nếu chưa hết cooldown.
+## AVATAR
 
-luồng đổi avatar: 
-  1. fe gọi POST /avatar/presign để lấy `{ url, fields }` (chuẩn Presigned POST, giới hạn file <= 5MB để chống kẻ xấu bơm rác S3 tốn chi phí).
-  2. fe tạo `FormData()`, append tất cả các `fields` vào form theo thứ tự, cuối cùng append file ảnh vào `formData.append("file", imageFile)`. Gọi `fetch(url, { method: "POST", body: formData })` để đẩy lên S3. (Không set header Content-Type thủ công).
-  3. fe gọi POST /avatar/confirm để server check cooldown và ghi nhận (server tự sinh path tương đối), trả về profile mới. URL này hết hạn sau 5 phút.
+đổi ảnh đại diện tốn **500 eCoin**. fe check đủ eCoin trong budget trước khi cho phép upload.
 
-lưu ý: avatarUrl trong DB là path tương đối (vd: "avatars/userId.jpg"), fe phải tự ghép domain CDN phía trước để hiển thị. avatar mặc định khi tạo tài khoản lấy từ biến môi trường DEFAULT_AVATAR_URL. S3 key cố định theo userId nên đổi ảnh sẽ ghi đè file cũ, không tạo file mới.
+luồng đổi avatar:
+1. fe chọn ảnh → chuyển sang base64
+2. fe gọi `POST /update-avatar`, body: `{ imageBody: "base64string...", contentType: "image/png" | "image/jpeg" }`
+3. server: kiểm tra budget.eCoin >= 500, nếu không đủ → trả `{ success: false, message, profile }` (có profile mới nhất để fe sync)
+4. server: upload buffer lên S3 (`public-assets/avatars/{userId}.{ext}`), trừ 500 eCoin bằng `ConditionExpression: budget.eCoin >= :cost` chống race-condition
+5. server: cập nhật `information.avatarUrl` = `avatars/{userId}.{ext}?t={timestamp}` (thêm ?t= để bypass CDN cache)
+6. server: trả `{ success: true, profile }` (profile mới nhất đã map cosmeticAssets)
+7. fe: dispatch profile mới vào redux + electron-store
 
---- TRANG BỊ COSMETICS ---
+lưu ý: avatarUrl trong DB là path tương đối, fe tự ghép domain CDN phía trước. S3 key cố định theo userId nên đổi ảnh sẽ ghi đè file cũ.
 
-fe gọi PUT /change-cosmetics, body: { backgroundId, frameId, titles }. backgroundId là bắt buộc (luôn phải có background). frameId có thể null. titles là mảng tối đa 3 danh hiệu (có thể rỗng []).
+---
 
-backend dùng BatchGetItem kiểm tra user có sở hữu các item đó trong inventory không (PK = userId, SK = itemId), nếu không có trả 403. nếu hợp lệ, backend cập nhật equippedCosmetics trong profile (equippedBackground, equippedFrame, equippedTitles) và trả về { profile } mới. fe lưu đè profile vào redux + electron store, update UI (không cần gọi lại get-profile).
+## TRANG BỊ COSMETICS
 
-lưu ý: profile còn có equippedButton nhưng hiện tại chưa dùng trong API change-cosmetics (chỉ set khi khởi tạo).
+fe gọi `POST /change-cosmetics`, body: `{ backgroundId, frameId, titles }`. backgroundId là bắt buộc. frameId có thể null. titles là mảng tối đa 3 (có thể rỗng []).
 
-fe phải lọc inventory theo itemType (theme, frame, title) để hiển thị danh sách cho user chọn. chỉ hiện item user đã sở hữu.
+backend: BatchGetItem kiểm tra user sở hữu item trong Inventory (PK=userId, SK=itemId). item mặc định (frame_none, title_none) được bypass. nếu hợp lệ → UpdateCommand cập nhật equippedCosmetics + updatedAt. trả `{ profile }` đã map cosmeticAssets. fe lưu đè profile vào redux + electron-store.
 
---- SESSION HỌC ---
+lưu ý: equippedButton hiện chưa dùng trong API change-cosmetics (chỉ set khi khởi tạo).
 
-bắt đầu session: fe gọi POST /start-study-session, body: { mode: "casual" | "rank", durationMinutes }. mode casual cho phép dừng sớm (vẫn tính COMPLETED), mode rank phải học hết thời gian (dừng sớm = FAILED). backend tạo session với status PENDING trong bảng Study, trả { sessionId }. fe lưu sessionId vào state để dùng khi kết thúc. sessionId có dạng "session#{timestamp}".
+fe lọc inventory theo itemType (background, frame, title) để hiển thị danh sách cho user chọn. chỉ hiện item đã sở hữu.
 
-trong khi học, fe tự theo dõi sự kiện hệ thống (rời app, unfocus). fe **KHÔNG gọi API liên tục** để báo cáo vi phạm (nhằm tối ưu chi phí AWS và tránh bẫy Heartbeat). thay vào đó, fe lưu cục bộ mảng các thời điểm vi phạm thành dạng Telemetry `strikes: [ts1, ts2]`. Ngoài ra fe phải ghi nhận mảng `logs` định kỳ mỗi phút một lần (để chứng minh app vẫn đang chạy). (Khuyến nghị: để chống gian lận, electron nên dùng một hàm hash C++ addon nội bộ để ký 2 mảng data này).
+---
 
-kết thúc session: fe gọi POST /end-study-session, body: { sessionId, telemetryData: { strikes: [...], logs: [...] } }. backend tự tính status dựa trên dữ liệu tổng hợp:
-- telemetryData.strikes.length >= 3 → FAILED
-- telemetryData.logs rỗng và học > 15 phút → FAILED (nghi ngờ xóa giám sát)
+## SESSION HỌC
+
+bắt đầu session: fe gọi `POST /start-study-session`, body: `{ mode: "casual" | "rank", durationMinutes }`. backend tạo session với status PENDING trong bảng Study, trả `{ sessionId }`. sessionId có dạng "session#{timestamp}".
+
+trong khi học, nếu phát hiện mất tập trung: fe gọi `POST /strike`, body: `{ sessionId }`. backend tăng strikeCount += 1. nếu >= 3 → auto FAILED, trả `{ strikeCount, sessionEnded: true }`. chưa đủ 3 → trả `{ strikeCount, sessionEnded: false }`.
+
+kết thúc session: fe gọi `POST /end-study-session`, body: `{ sessionId }`. **backend 100% tự quyết định status**, client KHÔNG gửi status hay reason:
+- strikeCount >= 3 → FAILED
 - elapsed >= expected - 30s → COMPLETED (cho phép lệch 30s do network delay)
 - casual mode dừng sớm → COMPLETED
 - rank mode dừng sớm → FAILED
-response trả { status, actualDurationSeconds, earnedPoints }. nếu COMPLETED + mode rank → earnedPoints = Math.floor(elapsed / 60) (điểm rank = số phút đã học), server cộng vào studyStats.rankScore trong profile. fe hiển thị kết quả, nếu có earnedPoints thì hiện animation cộng điểm. nếu session đã kết thúc trước đó (status !== PENDING) thì server trả lại thông tin session cũ mà không thay đổi gì.
 
-sau khi end session, backend gọi hàm update quest progress (type = "FOCUS") để cập nhật tiến độ daily quest liên quan.
+response trả `{ status, actualDurationSeconds, earnedPoints, questUpdate, profile, daily }`:
+- COMPLETED + rank → earnedPoints = Math.floor(elapsed / 60), server cộng vào studyStats.rankScore
+- COMPLETED → server gọi updateQuestProgress(userId, "FOCUS", studiedMinutes)
+- nếu session đã kết thúc trước đó (status !== PENDING) → server trả lại thông tin session cũ
 
---- DAILY QUEST ---
+---
 
-fe gọi GET /daily để lấy danh sách daily quest hiện tại. backend lấy profile check streak, nếu daily hết hạn thì chạy thuật toán refresh daily (reset streak nếu lastFocusDate không liên tục, cập nhật timeToStreak về 30, tạo daily mới gồm 1 quest cố định focus_daily + 3 quest random + meta quest all_daily). response: { daily } chứa object daily với quests map bên trong.
+## DAILY QUEST
 
-mỗi quest có: type, name, description, target, knowledgePoint (phần thưởng), progress, isCompleted, isClaimed. fe hiển thị thanh progress = progress/target. khi isCompleted = true và isClaimed = false → hiện nút "Nhận thưởng".
+fe gọi `GET /daily` để lấy daily quest hiện tại. backend lấy profile check streak, nếu daily hết hạn thì chạy refreshDaily (reset streak nếu lastFocusDate không liên tục, cập nhật timeToStreak về 30, tạo daily mới gồm 1 quest cố định focus_daily + 1 meta quest all_daily + 3 quest random). response: `{ daily }`.
 
-khi ấn nhận thưởng: fe gọi POST /daily/claim, body: { questKey } (vd: "focus_daily", "all_daily"). backend dùng transaction kiểm tra quest đã hoàn thành chưa, đã nhận chưa, daily còn hạn không (expiresAt > now). nếu ok → cộng knowledgePoint vào budget.knowledgePoint trong profile, set isClaimed = true trong quests map. trả về { rewardKnowledgePoint, newKnowledgePoint, updatedAt }. fe cập nhật budget.knowledgePoint trong redux, đánh dấu quest đã claimed, hiển thị animation nhận thưởng.
+mỗi quest có: type, name, description, target, knowledgePoint, progress, isCompleted, isClaimed. fe hiển thị progress/target. khi isCompleted = true và isClaimed = false → hiện nút "Nhận thưởng".
 
-quest "all_daily": hoàn thành 4 quest thường → all_daily_progress đủ 4 → all_daily_completed = true → cho phép nhận thưởng. khi claim all_daily thì set all_daily_claimed = true. fe kiểm tra all_daily_completed trong daily để biết có thể nhận thưởng chưa.
+khi ấn nhận thưởng: fe gọi `POST /daily/claim`, body: `{ questKey }` (vd: "focus_daily", "all_daily"). backend dùng TransactWriteCommand:
+- Quest table: set isClaimed = true (ConditionExpression: expiresAt > now)
+- User table: cộng knowledgePoint vào budget.knowledgePoint
+- trả `{ rewardKnowledgePoint, newKnowledgePoint, updatedAt }`. fe cập nhật budget trong redux, đánh dấu quest đã claimed
 
-tiến độ quest được backend tự cập nhật khi user thực hiện hành động (end session học, end session game, gacha...) thông qua hàm updateQuestProgress(userId, type, amount). fe không cần gọi API riêng để update progress. fe chỉ cần gọi GET /daily hoặc sync-all (với getDaily: true) để lấy progress mới nhất.
+quest "all_daily": khi 4 quest thường hoàn thành → all_daily.progress = 4 → all_daily.isCompleted = true → cho nhận thưởng.
 
---- GACHA ---
+tiến độ quest được backend tự cập nhật khi user thực hiện hành động (end session học, end session game, gacha, quiz...) thông qua hàm `updateQuestProgress(userId, type, amount)`. type: "FOCUS", "PLAY_SUDOKU", "PLAY_MINESWEEPER", "GACHA", "COMPLETE_QUIZ", "CORRECT_QUIZ_ANSWER". fe không cần gọi API riêng để update progress.
 
-fe gọi POST /gacha, body: { count: 1 | 10 }. chi phí: 1 lượt = 160 knowledgeCore. nếu không đủ core, backend tự đổi knowledgePoint sang core (tỉ giá 160 KP = 1 Core). nếu vẫn không đủ → trả 400.
+---
 
-thuật toán gacha chạy server-side: backend lấy gachaStats (pity4Star, pity5Star, is4StarGuaranteed, is5StarGuaranteed) từ profile, chạy hàm rollRarityValue cho từng lượt dựa vào pity hiện tại. rarity map gồm các giá trị: "3" (sanity), "3.5" (4★ thường), "4L" (4★ limited), "4.5" (5★ thường), "5L" (5★ limited). dựa vào rarity map, lấy item tương ứng từ bảng ItemData (collectFrom = "gacha", rarity và isLimited tương ứng). rarity 3 thì random sanity 1-10.
+## GACHA
+
+fe gọi `POST /gacha`, body: `{ isx10: true | false }`. chi phí: 1 lượt = 1 knowledgeCore. nếu không đủ core, backend tự đổi KP sang Core (tỉ giá 150 KP = 1 Core). nếu vẫn không đủ → 400.
+
+thuật toán gacha (server-side): hard pity 5★ ở lượt 80 (100%), base rate 1%. hard pity 4★ ở lượt 10, base rate 10%. 50/50: khi ra 5★ → 50% limited (5), 50% thường (4.5). thua 50/50 → is5StarGuaranteed = true → lần 5★ tiếp đảm bảo limited. 4★ tương tự (3.5 vs 4L).
+
+xử lý trùng lặp: nếu vật phẩm đã sở hữu hoặc trùng trong cùng x10 → quy đổi sang sanity (5★ = 150, 4★ = 80). rarity 3 → random sanity 50-100 (bước 5).
 
 response trả:
-- results: mảng item đã quay, mỗi item có { rarity, name, imageUrl, itemType, SK } hoặc { rarity: "3", name: "Sanity", sanityAmount } nếu ra sanity.
-- newBudget: { knowledgeCore, knowledgePoint, sanity } → fe cập nhật budget trong redux.
-- newGachaStats: { pity4Star, pity5Star, is4StarGuaranteed, is5StarGuaranteed } → fe lưu để hiển thị pity counter nếu cần.
-- updatedAt
+- `pulledItems`: mảng kết quả hiển thị, mỗi item: `{ imageUrl, name, rarity, isConverted, convertedTo? }`
+- `profile`: profile mới nhất đã map cosmeticAssets (budget + gachaStats cập nhật)
+- `inventory`: object chỉ chứa itemType có vật phẩm mới: `{ background: {items, lastEvaluatedKey}, ... }`
+- `gachaHistory`: trang 1 lịch sử mới nhất (30 bản ghi), `gachaHistoryLastKey`
 
-backend dùng transaction để: tạo inventory items (rarity != 3), ghi gacha history (mọi rarity, SK là timestamp + i ms để đảm bảo thứ tự), cập nhật budget và gachaStats trong profile, cập nhật inventoryUpdatedAt và gachaHistoryUpdatedAt. transaction chia batch 25 items.
+fe: hiện animation gacha → reveal item (5★ hiệu ứng đặc biệt, 4★ trung bình, 3★ đơn giản) → cập nhật redux + electron-store thông qua `ingestServerData()`.
 
-fe hiển thị animation quay gacha, rồi reveal từng item. item 5 sao = hiệu ứng đặc biệt, 4 sao = hiệu ứng trung bình, 3 sao (sanity) = hiệu ứng đơn giản. sau khi quay xong, fe cập nhật inventory trong redux (thêm item mới vào), cập nhật budget, cập nhật gachaStats.
+---
 
-hệ thống pity: soft pity 5★ bắt đầu từ lượt 74 (tỉ lệ tăng 6% mỗi lượt), hard pity 5★ ở lượt 90 (rate = 100%). soft pity 4★ từ lượt 9 (tỉ lệ tăng 20% mỗi lượt), hard pity 4★ ở lượt 10. fe có thể hiển thị số pity hiện tại cho user biết.
+## CURRENCY EXCHANGE
 
-50/50: khi ra 5★, có 50% ra limited (5L), 50% ra thường (4.5). nếu thua 50/50 (ra thường 4.5) → is5StarGuaranteed = true → lần 5★ tiếp theo đảm bảo ra limited. 4★ tương tự (3.5 vs 4L).
+fe gọi `POST /convert-points`, body: `{ targetCores }` (số knowledgeCore muốn đổi). tỉ giá: 150 KP = 1 Core. fe validate > 0 và số nguyên. backend kiểm tra đủ KP, trừ KP + cộng KC, trả `{ profile }` (đã map cosmeticAssets). fe cập nhật profile trong redux.
 
---- CURRENCY EXCHANGE ---
+---
 
-fe gọi POST /currency/exchange, body: { amount } (số knowledgeCore muốn mua). tỉ giá cố định: 160 KP = 1 Core. fe validate amount > 0 và là số nguyên trước khi gọi. backend kiểm tra đủ KP không bằng ConditionExpression, nếu thiếu trả 402. nếu ok trả { newBudget: { knowledgePoint, knowledgeCore }, updatedAt }. fe cập nhật budget trong redux.
+## SHOP
 
---- SHOP ---
+fe gọi `GET /shop/ecoin`. backend lấy cấu hình shop từ ItemData (PK=shop, SK=eCoinShop), BatchGetItem kiểm tra inventory → gắn `isOwned: true/false`. trả `{ shop }` chứa activeItems + expiresAt. fe hiển thị countdown, item owned → disable + "Đã sở hữu".
 
-fe gọi GET /shop?shopId=eCoinShop (hoặc shopId khác). backend lấy cấu hình shop từ ItemData (PK=shop, SK=shopId), kiểm tra expiresAt chưa hết hạn. sau đó duyệt từng item trong activeItems, query inventory xem user đã sở hữu chưa (PK=userId, SK=itemSK với itemSK = itemId bỏ prefix "item#"), đánh dấu owned. trả { shop } chứa thông tin shop và activeItems đã bổ sung trường owned: true/false. fe hiển thị danh sách item, item đã owned thì disable nút mua / hiện "Đã sở hữu".
+shop auto-refresh hàng tuần (00:00 Thứ 2 VN): Lambda `handleRefresheCoinShop` random 3 item từ pool `collectFrom="eCoinShop"`, expiresAt = 7 ngày sau.
 
-mua item: fe gọi POST /shop/buy, body: { shopId, itemId }. itemId là ID của item trong shop (vd: "item#frame_stone_1"). backend dùng transaction:
-- kiểm tra shop còn hạn (expiresAt)
-- kiểm tra user chưa sở hữu item (attribute_not_exists)
-- kiểm tra đủ tiền (ConditionExpression budget.currency = requiredBalance)
-- trừ tiền tương ứng (currencyType từ shopItem: eCoin, knowledgePoint...)
-- tạo bản ghi inventory mới (PK=userId, SK=itemSK, collectFrom=shopId)
-- cập nhật updatedAt và inventoryUpdatedAt
-response trả { newBalance, currency, item, updatedAt }. fe cập nhật budget (trừ tiền), thêm item vào inventory trong redux, đánh dấu item đã owned trong shop UI. lưu state mới xuống electron store.
+mua item: fe gọi `POST /shop/ecoin/buy`, body: `{ itemId }` (SK của item). backend dùng TransactWriteCommand:
+- trừ eCoin (ConditionExpression budget.eCoin >= price)
+- tạo bản ghi inventory (ConditionExpression attribute_not_exists)
+- trả `{ profile (budget mới), shop (isOwned cập nhật), inventory (trang 1 itemType vừa mua) }`
+- fe cập nhật redux + electron-store
 
-nếu shop có expiresAt, fe hiển thị countdown thời gian còn lại. khi hết hạn → ẩn shop hoặc hiện "Shop đã hết hạn".
+---
 
---- BẠN BÈ ---
+## BẠN BÈ
 
-fe gọi GET /friends?lastKey=... để lấy danh sách bạn bè, phân trang 60 item. response: { friends, lastEvaluatedKey }. mỗi friend có: SK (userId của bạn), friendName, friendAvatarUrl, status (PENDING_IN, PENDING_OUT, ACCEPTED), createdAt, updatedAt.
+fe gọi `GET /friends?lastKey=...` phân trang 60 item. response: `{ friends, lastEvaluatedKey }`. mỗi friend có: SK, friendName, friendAvatarUrl, status, createdAt, updatedAt.
 
-fe phân loại hiển thị:
-- ACCEPTED: bạn bè đã xác nhận → hiện trong danh sách bạn bè, có nút "Xóa bạn"
-- PENDING_IN: lời mời đến → hiện trong tab "Lời mời", có nút "Chấp nhận" và "Từ chối"
-- PENDING_OUT: lời mời đã gửi → hiện "Đang chờ xác nhận", có nút "Hủy lời mời"
+fe phân loại:
+- ACCEPTED: bạn bè → nút "Xóa bạn"
+- PENDING_IN: lời mời đến → nút "Chấp nhận" + "Từ chối"
+- PENDING_OUT: đã gửi → "Đang chờ xác nhận" + nút "Hủy lời mời"
 
-gửi lời mời: fe gọi POST /friends/request, body: { targetUserId }. backend kiểm tra bản ghi PK=userId, SK=targetUserId đã tồn tại chưa (nếu có trả 409), lấy profile cả 2 người, dùng transaction tạo 2 bản ghi (PENDING_OUT cho mình kèm thông tin bạn, PENDING_IN cho đối phương kèm thông tin mình, ConditionExpression attribute_not_exists), cập nhật friendUpdatedAt cho CẢ 2 người. response: { message, updatedAt }.
+gửi lời mời: `POST /friends/request`, body: `{ targetUserId }`. backend: kiểm tra chưa tồn tại + chống spam (max 50 PENDING_OUT). TransactWriteCommand tạo 2 bản ghi + cập nhật friendUpdatedAt cho cả 2 user. lời mời có TTL 30 ngày.
 
-chấp nhận: fe gọi POST /friends/accept, body: { targetUserId }. backend kiểm tra bản ghi PK=userId, SK=targetUserId có đúng status = PENDING_IN không. dùng transaction cập nhật cả 2 bản ghi thành ACCEPTED, cập nhật friendUpdatedAt cho cả 2. response: { message, updatedAt }.
+chấp nhận: `POST /friends/accept`, body: `{ targetUserId }`. backend cập nhật cả 2 bản ghi → ACCEPTED + friendUpdatedAt.
 
-xóa bạn / từ chối / hủy lời mời: fe gọi POST /friends/remove, body: { targetUserId }. backend dùng transaction xóa cả 2 bản ghi (A→B và B→A), cập nhật friendUpdatedAt cho cả 2. response: { message, updatedAt }. dùng chung cho cả 3 hành động.
+xóa/từ chối/hủy: `POST /friends/remove`, body: `{ targetUserId }`. backend xóa 2 bản ghi + friendUpdatedAt.
 
-sau mỗi hành động bạn bè, fe nên gọi lại GET /friends hoặc sync-all để cập nhật danh sách.
+---
 
---- TÌM KIẾM USER ---
+## TÌM KIẾM USER
 
-fe gọi GET /friends/search?q=keyword (tối thiểu 2 ký tự). backend tìm bằng OpenSearch (index "users", multi-match trên name và email, fuzzy, loại trừ bản thân), trả { users } mảng tối đa 10 kết quả, mỗi user có: userId, name, avatarUrl, streak, titles. fe hiển thị danh sách kết quả, mỗi user có nút "Kết bạn" (gọi /friends/request). fe tự loại bỏ những user đã là bạn hoặc đã gửi lời mời (so sánh với danh sách friends trong redux).
+fe gọi `GET /friends/search?q=keyword` (tối thiểu 2 ký tự). rate limit 5 giây giữa mỗi lần search (server kiểm tra lastSearchAt). backend gọi Algolia Search (index "users", loại trừ bản thân), trả `{ users }` tối đa 10 kết quả, mỗi user có: PK, avatarUrl, information.name, studyStats.{rankScore, streak}, equippedCosmetics.equippedFrame.
 
-lưu ý: dữ liệu OpenSearch được sync tự động từ DynamoDB Streams (Lambda streamIndexer), khi profile thay đổi thì index users được cập nhật (userId, name, email, avatarUrl, streak, equippedTitles).
+dữ liệu Algolia sync tự động từ DynamoDB Streams (Lambda `handleStreamIndexer` trigger trên User table).
 
---- MINIGAME ---
+---
 
-lấy danh sách màn chơi: fe gọi GET /minigame/levels?gameId=sudoku&lastKey=..., phân trang 20 item. backend trả { levels, lastEvaluatedKey }. mỗi level có thêm score: null nếu chưa chơi, hoặc { personalBest, achievedAt } nếu đã chơi.
+## MINIGAME (SUDOKU)
 
-bắt đầu chơi: fe gọi POST /minigame/start, body: { gameId, levelId }. backend trừ sanity và sinh `gameToken` (HMAC ký hiệu).
-trả { gameToken, seed, baseMapConfig, newBudget, updatedAt }. fe lưu `gameToken` vào bộ nhớ và dùng seed + baseMapConfig để render game. (Backend áp dụng kiến trúc Stateless, không lưu game vào Database để tiết kiệm chi phí).
+lấy danh sách màn chơi: fe gọi `GET /minigame/sudokulevels?lastKey=...`. backend query PK="sudoku" lấy 10 level/trang + BatchGetItem lấy score user. trả `{ levels (kèm score), lastEvaluatedKey }`.
 
-kết thúc chơi: fe gọi POST /minigame/end, body: { gameId, gameToken, actionLog, finalGrid }. 
-**Đặc biệt với Minesweeper**: `finalGrid` phải là mảng các tọa độ ô đã click mở. Server sẽ decode `gameToken`, lấy `seed` dựng lại map trong RAM để đối soát độ chính xác của mọi lượt click, bảo đảm 100% Zero-Trust.
-response: { isWin, score, scoreUpdated, oldPersonalBest, earnedECoin, earnedSanity, newBudget, updatedAt }.
-- isWin = true: earnedECoin = eCoin của màn đó, score tính từ maxScoreCap giảm dần theo thời gian chơi. nếu scoreUpdated = true → hiện "Kỷ lục mới!".
-- isWin = false: earnedSanity = 50% sanityCost đã tiêu. hiện animation thua.
-fe cập nhật budget trong redux (eCoin, sanity).
+bắt đầu chơi: `POST /minigame/sudokulevels/start-game`, body: `{ gameId: "sudoku", levelId }`. backend: trừ sanity, sinh đề bằng sudokuGenerator → tạo session tạm (PK=userId, SK=session#sudoku, checkCount=5). trả `{ profile (budget mới), sessionData: { sessionId, seed, checkCount, puzzleGrid, status }, baseMapConfig }`. fe render game từ puzzleGrid.
 
-backend sau khi end game thắng sẽ gọi updateQuestProgress (type = PLAY_SUDOKU / PLAY_MINESWEEPER) để cập nhật quest.
+kiểm tra bàn cờ: `POST /minigame/sudokulevels/check`, body: `{ currentGrid, actionLogs }`. backend: chạy anti-cheat + so sánh từng ô với solutionGrid, trừ checkCount. trả `{ checkCount, isBoardCorrect }`.
 
-leaderboard toàn cầu: fe gọi GET /minigame/leaderboard/global?gameId=sudoku. backend đọc bản ghi PK=globalLeaderboard, SK=gameId. trả { leaderboard, gameId } mảng top 10 player, mỗi entry có: rank, userId, totalScore, levelsCompleted, lastUpdatedAt, displayInfo { name, avatarUrl, equippedFrame }. cập nhật mỗi 10 phút bởi EventBridge → Lambda leaderboardWorker (query GSI gameId-totalScore-index, lấy top 10, ghi đè vào globalLeaderboard).
+kết thúc: `POST /minigame/sudokulevels/end-session`, body: `{ finalGrid, actionLogs, endState: "quit"|"lost"|"submit" }`.
+- quit/lost: hoàn 50% sanityCost, status = CANCELLED
+- submit: anti-cheat + so sánh finalGrid. nếu đúng → tính score (bonus nếu checkCount full: ×1.5, penalty mỗi check mất: ×0.95), cộng eCoin, so sánh personalBest. trả `{ result, score, eCoinReward, isPB, profile, stat, timeSpent, levels (cập nhật score), lastEvaluatedKey }`
 
-leaderboard bạn bè: fe gọi GET /minigame/leaderboard/friends?gameId=sudoku. backend lấy danh sách bạn ACCEPTED từ Social table, BatchGetItem stats#gameId của tất cả (bao gồm bản thân), sort totalScore giảm dần, lấy top 10. trả { leaderboard, gameId } cùng format với global. realtime hơn global vì tính trực tiếp.
+anti-cheat backend:
+- thời gian hoàn thành < 5s + full board → cheat
+- 2 thao tác cách nhau < 10ms → cheat (machine)
+- chuỗi < 50ms liên tục >= 4 lần → cheat (bot)
+- timestamp đi lùi → cheat (time travel)
+- trung bình > 15 thao tác/giây → cheat
 
---- GHI NHỚ CHUNG ---
+leaderboard global: `GET /minigame/leaderboard?gameId=sudoku`. backend đọc PK=leaderboard, SK=gameId. trả `{ topPlayers, expiresAt }`. cập nhật mỗi 10 phút bởi EventBridge Worker (Scan stats → sort → top 10 → ghi đè).
 
-tất cả API đều yêu cầu Cognito JWT token trong header Authorization (httpApi authorizer: myCognitoAuth). fe dùng Amplify hoặc tự gắn token.
+leaderboard bạn bè: `GET /minigame/leaderboard?gameId=sudoku` (tab friends). backend lấy danh sách bạn ACCEPTED → BatchGetItem stats#{gameId} → sort → top 10. realtime hơn global.
 
-response format chung: { success: true/false, ...data } hoặc { success: false, message: "..." }. successResponse và errorResponse được định nghĩa trong response.mjs.
+fe: cache trong redux, kiểm tra thời gian lastFetchedAt (5 phút), có nút refresh.
 
-tất cả timestamp trong hệ thống dùng Date.now() (milliseconds). fe so sánh updatedAt giữa local và server để biết cần sync không.
+---
+
+## STUDY PLANNER (100% LOCAL)
+
+tất cả dữ liệu Study Planner lưu trong electron-store, KHÔNG gửi lên AWS server.
+
+- **chat AI**: dùng Ollama (local) hoặc Gemini API (cần key). tối đa 5 phiên chat. lưu/xóa qua IPC: `study:saveChat`, `study:deleteChat`, `study:loadChats`
+- **study plan**: tạo kế hoạch học tập bằng AI. tối đa 5 kế hoạch. IPC: `study:savePlan`, `study:deletePlan`, `study:loadPlans`
+- **quiz**: tạo bộ câu hỏi từ study plan bằng AI. tối đa 10 lịch sử. IPC: `study:saveQuiz`, `study:deleteQuiz`, `study:loadQuizzes`
+- **settings**: lưu provider AI (ollama/gemini) và gemini API key. IPC: `study:saveSettings`, `study:loadSettings`
+
+khi hoàn thành quiz → fe gọi `POST /study-planner/quiz-submit`, body: `{ correctAnswersCount, totalQuestions }`:
+- server cộng KP = correctAnswersCount × 10 vào budget
+- gọi updateQuestProgress(userId, "COMPLETE_QUIZ", 1) + updateQuestProgress(userId, "CORRECT_QUIZ_ANSWER", correctAnswersCount)
+- trả `{ earnedKP, questUpdate, profile, daily }`
+
+---
+
+## GHI NHỚ CHUNG
+
+tất cả API (trừ `/version`) đều yêu cầu Cognito JWT token trong header Authorization (httpApi authorizer: myCognitoAuth).
+
+response format chung: `{ success: true/false, ...data }`. lỗi: `{ success: false, message, ...latestData }` — server tự đính kèm dữ liệu mới nhất (profile, daily, inventory, gachaHistory, social) vào error response qua hàm `syncedErrorResponse()` để client tự sync ngay cả khi lỗi.
+
+tất cả timestamp dùng `Date.now()` (milliseconds).
 
 cấu trúc profile trong DB:
-- PK: userId
+- PK: userId (sub từ Cognito)
 - information: { name, email, avatarUrl }
 - budget: { knowledgePoint, knowledgeCore, sanity, eCoin }
 - studyStats: { rankScore, timeToStreak, streak, lastFocusDate }
 - gachaStats: { pity4Star, pity5Star, is4StarGuaranteed, is5StarGuaranteed }
 - equippedCosmetics: { equippedBackground, equippedButton, equippedFrame, equippedTitles }
-- inventoryUpdatedAt, gachaHistoryUpdatedAt, friendUpdatedAt, avatarUpdatedAt, createdAt, updatedAt
+- inventoryUpdatedAt, gachaHistoryUpdatedAt, friendUpdatedAt, avatarUpdatedAt, lastSearchAt, createdAt, updatedAt
 
 quy tắc lưu trữ electron store:
-- profile, inventory, friends, gachaHistory, daily, masterData → mỗi cái 1 key trong electron store, mã hóa safe storage.
-- budget, gachaStats, studyStats, equippedCosmetics → nằm trong profile, không lưu riêng.
-- khi response trả về profile mới (từ update-profile, change-cosmetics, gacha, shop...) → lưu đè toàn bộ profile.
+- profile, inventory, friends, gachaHistory, daily, masterData → mỗi cái 1 key trong electron store
+- inventory lưu theo cấu trúc: `{ background: { items: [...], lastEvaluatedKey }, frame: {...}, ... }`
+- khi response trả profile mới (từ update-profile, change-cosmetics, gacha, shop, convert-points, update-avatar...) → lưu đè toàn bộ profile
+- study planner data (chats, plans, quizzes, settings) → lưu riêng trong thư mục study-planner
 
 quy tắc redux:
-- mỗi khi nhận dữ liệu mới từ API → dispatch action cập nhật slice tương ứng.
-- UI luôn render từ redux state, không render trực tiếp từ API response.
-- khi cần dữ liệu offline → hydrate redux từ electron store khi mở app.
+- mỗi khi nhận dữ liệu mới từ API → dispatch action cập nhật slice tương ứng
+- UI luôn render từ redux state, không render trực tiếp từ API response
+- khi cần dữ liệu offline → hydrate redux từ electron-store khi mở app
+- inventory dispatch: `SET_INVENTORY` (ghi đè trang 1) hoặc `APPEND_INVENTORY` (nối thêm khi phân trang)
+- gacha dispatch: `SET_GACHA_HISTORY` (ghi đè) hoặc `APPEND_GACHA_HISTORY` (nối thêm)
+- social dispatch: `SET_SOCIAL` (ghi đè) hoặc `APPEND_SOCIAL` (nối thêm)
+
+hàm `ingestServerData()` (syncService.js): xử lý đồng bộ mọi dữ liệu nhận từ server → dispatch redux + lưu electron-store. dùng chung cho sync-all, gacha, shop, và khi error response chứa data.
+
+hàm `normalizeProfile()`: chuẩn hóa các trường budget (handle nhiều định dạng key cũ/mới) để đảm bảo tương thích.
