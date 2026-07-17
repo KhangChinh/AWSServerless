@@ -1,0 +1,11 @@
+{
+  "PK": "item",
+  "SK": "pet_bunny",
+  "itemType": "pet",
+  "name": "Bunny",
+  "rarity": 5,
+  "currencyType": "eCoin",
+  "price": 500,
+  "collectFrom": "eCoinShop",
+  "isLimited": true
+}

@@ -169,7 +169,7 @@ const handleEquipCosmetics = async (event) => {
 
     try {
         const body = JSON.parse(event.body || "{}");
-        const { backgroundId, frameId, titles } = body;
+        const { backgroundId, frameId, titles, petId } = body;
 
         if (!backgroundId) {
             return await syncedErrorResponse(getUserId(event), 400, "backgroundId là bắt buộc");
@@ -187,6 +187,7 @@ const handleEquipCosmetics = async (event) => {
                 if (!defaultCosmeticIds.has(t)) itemsToCheck.push({ PK: userId, SK: t });
             }
         }
+        if (petId && !defaultCosmeticIds.has(petId)) itemsToCheck.push({ PK: userId, SK: petId });
 
         // BatchGetItem để kiểm tra sở hữu
         const batchResult = await docClient.send(
@@ -218,6 +219,9 @@ const handleEquipCosmetics = async (event) => {
                 }
             }
         }
+        if (petId && !ownedSet.has(petId)) {
+            return await syncedErrorResponse(getUserId(event), 403, "Bạn không sở hữu Pet này");
+        }
 
         const now = Date.now();
         await docClient.send(
@@ -228,11 +232,13 @@ const handleEquipCosmetics = async (event) => {
                     "SET equippedCosmetics.equippedBackground = :bg, " +
                     "equippedCosmetics.equippedFrame = :frame, " +
                     "equippedCosmetics.equippedTitles = :titles, " +
+                    "equippedCosmetics.equippedPet = :pet, " +
                     "updatedAt = :now",
                 ExpressionAttributeValues: {
                     ":bg": backgroundId,
                     ":frame": frameId ?? null,
                     ":titles": titles ?? [],
+                    ":pet": petId ?? null,
                     ":now": now,
                 },
             })
