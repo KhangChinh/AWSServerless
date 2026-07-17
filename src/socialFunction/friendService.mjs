@@ -22,6 +22,26 @@ const getUserId = (event) => {
 // Query params: lastKey (optional JSON string)
 // Lấy danh sách bạn bè phân trang (bao gồm PENDING_IN, PENDING_OUT, ACCEPTED)
 // ═══════════════════════════════════════════════════════
+const fetchSocialMutationSnapshot = async (userId) => {
+    const [socialResult, profileResult] = await Promise.all([
+        docClient.send(new QueryCommand({
+            TableName: process.env.SOCIAL_TABLE,
+            KeyConditionExpression: "PK = :uid",
+            ExpressionAttributeValues: { ":uid": userId },
+            Limit: 10,
+        })),
+        docClient.send(new GetCommand({
+            TableName: process.env.USER_TABLE,
+            Key: { PK: userId },
+        })),
+    ]);
+
+    return {
+        profile: profileResult.Item || null,
+        social: socialResult.Items || [],
+        friendsLastKey: socialResult.LastEvaluatedKey || null,
+    };
+};
 const handleGetFriends = async (event) => {
     const userId = getUserId(event);
     if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
@@ -174,7 +194,8 @@ const handleSendFriendRequest = async (event) => {
             })
         );
 
-        return successResponse({ message: "Đã gửi lời mời kết bạn", updatedAt: now });
+        const syncData = await fetchSocialMutationSnapshot(userId);
+        return successResponse({ message: "Đã gửi lời mời kết bạn", updatedAt: now, ...syncData });
     } catch (err) {
         if (err.name === "TransactionCanceledException") {
             return await syncedErrorResponse(getUserId(event), 409, "Lời mời đã tồn tại hoặc điều kiện thay đổi");
@@ -256,7 +277,8 @@ const handleAcceptFriendRequest = async (event) => {
             })
         );
 
-        return successResponse({ message: "Đã chấp nhận kết bạn", updatedAt: now });
+        const syncData = await fetchSocialMutationSnapshot(userId);
+        return successResponse({ message: "Đã chấp nhận kết bạn", updatedAt: now, ...syncData });
     } catch (err) {
         console.error("Lỗi acceptFriendRequest:", err);
         return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
@@ -305,7 +327,8 @@ const handleRemoveFriend = async (event) => {
             })
         );
 
-        return successResponse({ message: "Đã xóa/từ chối kết bạn", updatedAt: now });
+        const syncData = await fetchSocialMutationSnapshot(userId);
+        return successResponse({ message: "Đã xóa/từ chối kết bạn", updatedAt: now, ...syncData });
     } catch (err) {
         console.error("Lỗi removeFriend:", err);
         return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");

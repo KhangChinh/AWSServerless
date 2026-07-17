@@ -1,5 +1,11 @@
 service: aws-uchimi
 useDotenv: true
+plugins:
+  - serverless-api-gateway-throttling
+custom:
+  apiGatewayThrottling:
+    maxRequestsPerSecond: 50
+    maxConcurrentRequests: 20
 build:
   esbuild:
     bundle: true
@@ -26,6 +32,7 @@ provider:
     INVENTORY_TABLE: ${env:INVENTORY_TABLE}
     GACHAHISTORY_TABLE: ${env:GACHAHISTORY_TABLE}
     INVENTORY_TYPES: ${env:INVENTORY_TYPES}
+    VERSION: ${env:VERSION}
 
   iam:
     role:

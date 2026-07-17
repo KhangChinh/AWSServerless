@@ -20,6 +20,7 @@
     "aws4fetch": "^1.0.20"
   },
   "devDependencies": {
-    "esbuild": "^0.28.1"
+    "esbuild": "^0.28.1",
+    "serverless-api-gateway-throttling": "^2.0.3"
   }
 }
