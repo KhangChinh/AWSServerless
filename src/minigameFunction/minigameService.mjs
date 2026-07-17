@@ -406,12 +406,13 @@ const handleEndSudokuSession = async (event) => {
         const session = sessionRes.Item;
         const profile = profileRes.Item;
 
-        if (!session || session.status !== "PENDING") return await syncedErrorResponse(getUserId(event), 400, "Phiên chơi không hợp lệ.");
+        if (!session || session.status !== "PENDING")
+            return await syncedErrorResponse(getUserId(event), 400, "Phiên chơi không hợp lệ.");
 
         let budget = profile.budget;
 
         // --- TRƯỜNG HỢP THUA HOẶC THOÁT RA ---
-        if (endState === "quit" || endState === "lost") {
+        if (endState === "quit") {
             const refundSanity = Math.floor(session.sanityCost * 0.5);
             budget.sanity += refundSanity;
 
@@ -439,7 +440,22 @@ const handleEndSudokuSession = async (event) => {
         const cheatResult = checkSudokuCheat(session, actionLogs, finalGrid);
         if (cheatResult.isCheat) return await syncedErrorResponse(getUserId(event), 403, `Phát hiện gian lận: ${cheatResult.reason}`);
         if (!cheatResult.isBoardCorrect || finalGrid.indexOf('0') !== -1) {
-            return await syncedErrorResponse(getUserId(event), 400, "Bàn cờ giải chưa chính xác hoặc chưa hoàn thành.");
+            await Promise.all([
+                docClient.send(new UpdateCommand({
+                    TableName: process.env.USER_TABLE,
+                    Key: { PK: userId },
+                    UpdateExpression: "SET budget = :b",
+                    ExpressionAttributeValues: { ":b": budget }
+                })),
+                docClient.send(new UpdateCommand({
+                    TableName: process.env.MINIGAME_TABLE,
+                    Key: { PK: userId, SK: "session#sudoku" },
+                    UpdateExpression: "SET #st = :s",
+                    ExpressionAttributeNames: { "#st": "status" },
+                    ExpressionAttributeValues: { ":s": "UNCOMPLETED" }
+                }))
+            ]);
+            return successResponse({ success: true, result: "lost", budget, refundSanity });
         }
 
         // Lấy thông tin Level để tính điểm
