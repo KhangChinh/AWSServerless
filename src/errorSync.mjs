@@ -41,7 +41,7 @@ const fetchSocial = (userId) => docClient.send(new QueryCommand({
     Limit: SOCIAL_PAGE_SIZE,
 }));
 
-const getInventoryTypes = () => String(process.env.INVENTORY_TYPES || "background,frame,title,button")
+const getInventoryTypes = () => String(process.env.INVENTORY_TYPES || "background,frame,title,button,pet")
     .split(",")
     .map((type) => type.trim())
     .filter(Boolean);

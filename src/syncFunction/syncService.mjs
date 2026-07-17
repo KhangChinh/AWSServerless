@@ -32,6 +32,9 @@ const mapCosmeticAssets = async (profile) => {
     if (equippedCosmetics.equippedFrame) {
         keysToFetch.push({ PK: "item", SK: equippedCosmetics.equippedFrame });
     }
+    if (equippedCosmetics.equippedPet && equippedCosmetics.equippedPet !== "pet_none") {
+        keysToFetch.push({ PK: "item", SK: equippedCosmetics.equippedPet });
+    }
     if (equippedCosmetics.equippedTitles && equippedCosmetics.equippedTitles.length > 0) {
         for (const t of equippedCosmetics.equippedTitles) {
             keysToFetch.push({ PK: "item", SK: t });
@@ -68,6 +71,11 @@ const mapCosmeticAssets = async (profile) => {
         updatedEquipped.equippedFrame = itemMap[equippedCosmetics.equippedFrame] || null;
     } else {
         updatedEquipped.equippedFrame = null;
+    }
+    if (equippedCosmetics.equippedPet && equippedCosmetics.equippedPet !== "pet_none") {
+        updatedEquipped.equippedPet = itemMap[equippedCosmetics.equippedPet] || null;
+    } else {
+        updatedEquipped.equippedPet = null;
     }
     if (equippedCosmetics.equippedTitles && equippedCosmetics.equippedTitles.length > 0) {
         updatedEquipped.equippedTitles = equippedCosmetics.equippedTitles
@@ -273,7 +281,10 @@ const handleSyncAll = async (event) => {
         }
         const promises = [];
         if (getInventory) {
-            const types = (process.env.INVENTORY_TYPES).split(',');
+            const types = String(process.env.INVENTORY_TYPES )
+                .split(",")
+                .map(type => type.trim())
+                .filter(Boolean);
             response.inventory = {};
             for (const type of types) {
                 promises.push(

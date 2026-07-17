@@ -27,7 +27,8 @@
         "equippedBackground": "bg_default",
         "equippedButton": null,
         "equippedFrame": null,
-        "equippedTitles": []
+        "equippedTitles": [],
+        "equippedPet": null
     },
     "inventoryUpdatedAt": 1717768800000,
     "gachaHistoryUpdatedAt": 1717768800000,

@@ -179,7 +179,7 @@ const handleEquipCosmetics = async (event) => {
         }
 
         // Xây danh sách các SK cần kiểm tra sở hữu
-        const defaultCosmeticIds = new Set(["frame_none", "title_none"]);
+        const defaultCosmeticIds = new Set(["frame_none", "title_none", "pet_none"]);
         const itemsToCheck = [{ PK: userId, SK: backgroundId }];
         if (frameId && !defaultCosmeticIds.has(frameId)) itemsToCheck.push({ PK: userId, SK: frameId });
         if (titles && titles.length > 0) {
