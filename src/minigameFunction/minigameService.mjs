@@ -440,6 +440,8 @@ const handleEndSudokuSession = async (event) => {
         const cheatResult = checkSudokuCheat(session, actionLogs, finalGrid);
         if (cheatResult.isCheat) return await syncedErrorResponse(getUserId(event), 403, `Phát hiện gian lận: ${cheatResult.reason}`);
         if (!cheatResult.isBoardCorrect || finalGrid.indexOf('0') !== -1) {
+            const refundSanity = Math.floor(session.sanityCost * 0.5);
+            budget.sanity += refundSanity;
             await Promise.all([
                 docClient.send(new UpdateCommand({
                     TableName: process.env.USER_TABLE,
