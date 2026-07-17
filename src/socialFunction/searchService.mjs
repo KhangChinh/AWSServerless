@@ -45,11 +45,12 @@ const handleSearchUser = async (event) => {
             return await syncedErrorResponse(getUserId(event), 429, `Vui lòng đợi ${wait} giây trước khi tìm kiếm tiếp.`);
         }
 
-        await docClient.send(new UpdateCommand({
+        const updatedProfileResult = await docClient.send(new UpdateCommand({
             TableName: process.env.USER_TABLE,
             Key: { PK: userId },
             UpdateExpression: "SET lastSearchAt = :now, updatedAt = :now",
-            ExpressionAttributeValues: { ":now": now }
+            ExpressionAttributeValues: { ":now": now },
+            ReturnValues: "ALL_NEW"
         }));
 
         // --- GỌI ALGOLIA SEARCH ---
@@ -75,6 +76,7 @@ const handleSearchUser = async (event) => {
 
         return successResponse({
             users,
+            profile: updatedProfileResult.Attributes || null,
             hasMore: searchResults.page < searchResults.nbPages - 1
         });
     } catch (err) {

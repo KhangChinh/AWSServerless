@@ -200,6 +200,8 @@ const handleClaimQuest = async (event) => {
         return successResponse({
             message: "Nhận thưởng thành công",
             questKey,
+            profile: { ...profile, budget: { ...profile.budget, knowledgePoint: (profile.budget?.knowledgePoint || 0) + reward }, updatedAt: nowMs },
+            daily: { ...daily, quests: updatedQuests },
             rewardKnowledgePoint: reward,
             newKnowledgePoint: (profile.budget?.knowledgePoint || 0) + reward,
             updatedAt: nowMs,
