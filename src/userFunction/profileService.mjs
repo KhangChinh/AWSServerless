@@ -21,6 +21,7 @@ const handleInitUser = async (event) => {
         background: "bg_default",
         frame: "frame_none",
         title: "title_none",
+        pet: "pet_none"
     };
     const defaultItemSKs = Object.values(defaultItemsConfig);
     let systemItems = [];
@@ -88,6 +89,7 @@ const handleInitUser = async (event) => {
             equippedButton: defaultItemsConfig.button || null,
             equippedFrame: defaultItemsConfig.frame || null,
             equippedTitles: defaultItemsConfig.title ? [defaultItemsConfig.title] : [],
+            equippedPet: defaultItemsConfig.pet || null,
         },
         inventoryUpdatedAt: now,
         gachaHistoryUpdatedAt: now,

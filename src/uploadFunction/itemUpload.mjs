@@ -17,8 +17,8 @@ const streamToBuffer = async (stream) => {
 
 const MIME_TYPES = {
     png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif',
-    webp: 'image/webp', svg: 'image/svg+xml', css: 'text/css', json: 'application/json',
-    mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg'
+    webp: 'image/webp', svg: 'image/svg+xml', css: 'text/css', js: 'application/javascript',
+    json: 'application/json', mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg'
 };
 
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'];
@@ -36,7 +36,7 @@ const processZip = async (event) => {
         const zip = new AdmZip(zipBuffer);
         const zipEntries = zip.getEntries();
 
-        // Lấy data.json bằng cách kiểm tra đuôi chuỗi, bỏ qua folder ngoài
+        // Tìm data.json, bỏ qua folder ngoài
         const jsonEntry = zipEntries.find(e => e.entryName.endsWith('data.json') && !e.isDirectory);
         if (!jsonEntry) throw new Error("Thiếu data.json trong file ZIP");
 
@@ -50,14 +50,11 @@ const processZip = async (event) => {
         for (const entry of zipEntries) {
             if (entry.isDirectory || entry.entryName.endsWith('data.json')) continue;
 
-            // BỎ QUA FOLDER TỔNG: Chỉ lấy tên file và thư mục cha trực tiếp của nó
             const pathParts = entry.entryName.split('/');
-            const fileName = pathParts.pop(); // VD: bunny_attack.png
-            const parentDir = pathParts.pop(); // VD: assets (hoặc undefined/tên folder gốc)
+            const fileName = pathParts.pop();
+            const parentDir = pathParts.pop();
 
-            // Quy về chuẩn duy nhất: nếu nằm trong assets thì thêm assets/, còn lại vứt hết ra ngoài cùng
             const filePath = parentDir === 'assets' ? `assets/${fileName}` : fileName;
-
             const extension = fileName.split('.').pop().toLowerCase();
             const s3UploadKey = `public-assets/items/${itemType}/${itemId}/${filePath}`;
             const relativeUrl = `${itemType}/${itemId}/${filePath}`;
@@ -80,6 +77,9 @@ const processZip = async (event) => {
             } else {
                 if (extension === 'css') {
                     itemData.assets.css = relativeUrl;
+                } else if (extension === 'js') {
+                    // Xử lý .js giống hệt .css
+                    itemData.assets.js = relativeUrl;
                 } else {
                     const fileNameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
                     const keyName = fileNameWithoutExt.includes('_') ? fileNameWithoutExt.split('_').pop() : fileNameWithoutExt;
