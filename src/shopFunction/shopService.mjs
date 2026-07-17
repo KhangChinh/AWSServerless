@@ -236,15 +236,24 @@ const handleBuyeCoinItem = async (event) => {
         }));
         const { PK, SK, updatedAt: shopUpdatedAt, ...clientShopData } = shopData;
         clientShopData.activeItems = enrichedItems;
-        // 5.3. Kéo lại túi đồ (Inventory) mới nhất của tab tương ứng với item vừa mua
-        // Để Frontend cập nhật thẳng vào giao diện kho đồ (y hệt gachaService)
-        const invPage = await fetchInventoryPage(userId, null, itemToBuy.itemType);
-        const inventoryResult = {
-            [itemToBuy.itemType]: {
-                items: invPage.items,
-                lastEvaluatedKey: invPage.lastEvaluatedKey
-            }
-        };
+        // 5.3. Lấy trang đầu mới nhất của tất cả nhóm inventory, cùng contract với gacha/sync-all.
+        // Frontend có thể ghi đè cache của từng itemType bằng ingestServerData.
+        const inventoryTypes = String(process.env.INVENTORY_TYPES || String())
+            .split(String.fromCharCode(44))
+            .map(type => type.trim())
+            .filter(Boolean);
+        if (itemToBuy.itemType && !inventoryTypes.includes(itemToBuy.itemType)) {
+            inventoryTypes.push(itemToBuy.itemType);
+        }
+        const inventoryResult = {};
+        await Promise.all(inventoryTypes.map(type =>
+            fetchInventoryPage(userId, null, type).then(inv => {
+                inventoryResult[type] = {
+                    items: inv.items,
+                    lastEvaluatedKey: inv.lastEvaluatedKey
+                };
+            })
+        ));
         // 6. TRẢ VỀ FORM CHUẨN
         return successResponse({
             success: true,
