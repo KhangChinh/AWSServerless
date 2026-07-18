@@ -1,0 +1,11 @@
+{
+  "PK": "item",
+  "SK": "pet_death",
+  "itemType": "pet",
+  "name": "Death",
+  "rarity": 5,
+  "currencyType": "eCoin",
+  "price": 900,
+  "collectFrom": "eCoinShop",
+  "isLimited": true
+}
