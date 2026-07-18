@@ -270,13 +270,13 @@ const handleSyncAll = async (event) => {
             getSocial = false
         } = body;
         const response = { success: true };
-        const profile = await fetchProfile(userId);
+        const profile = (getProfile || getDaily) ? await fetchProfile(userId) : {};
         if (!profile) return await syncedErrorResponse(getUserId(event), 404, "Không tìm thấy profile");
         if (getProfile) {
             response.profile = await mapCosmeticAssets(profile);
         }
-        const { daily, isNew } = await getOrRefreshDaily(userId, profile);
-        if (isNew || getDaily) {
+        if (getDaily) {
+            const { daily } = await getOrRefreshDaily(userId, profile);
             response.daily = daily;
         }
         const promises = [];
