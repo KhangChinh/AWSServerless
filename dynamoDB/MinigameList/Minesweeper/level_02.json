@@ -1,0 +1,15 @@
+{
+    "PK": "minesweeper",
+    "SK": "level_02",
+    "name": "Minesweeper Level 2",
+    "sanityCost": 0,
+    "requiredLevel": "level_01",
+    "maxScoreCap": 1000,
+    "eCoin": 10,
+    "baseMapConfig": {
+        "gridSize": "9x9",
+        "mineCount": 10,
+        "safeStartRadius": 1,
+        "seedMode": "deterministic"
+    }
+}
