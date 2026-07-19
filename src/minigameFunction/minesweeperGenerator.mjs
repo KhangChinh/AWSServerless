@@ -58,8 +58,22 @@ export const generateMinesweeperBoard = (baseMapConfig) => {
     // solutionGrid là đáp án hoàn chỉnh
     const solutionGrid = boardArr.join('');
 
-    // puzzleGrid gửi xuống Client ban đầu sẽ toàn là H (Hidden)
-    const puzzleGrid = 'H'.repeat(totalCells);
+    // 4. Tạo puzzleGrid: Hiển thị các ô trong vùng an toàn, các ô khác để 'H'
+    let puzzleGridArr = Array(totalCells).fill('H');
+
+    for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+            let isSafeZone = Math.abs(r - centerRow) <= safeRadius && Math.abs(c - centerCol) <= safeRadius;
+
+            if (isSafeZone) {
+                // Nếu nằm trong vùng an toàn, lấy giá trị đáp án (số 0-8) mở sẵn cho client
+                let index = getIndex(r, c);
+                puzzleGridArr[index] = boardArr[index];
+            }
+        }
+    }
+
+    const puzzleGrid = puzzleGridArr.join('');
 
     return {
         seed: boardId,
