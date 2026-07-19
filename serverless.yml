@@ -33,6 +33,7 @@ provider:
     GACHAHISTORY_TABLE: ${env:GACHAHISTORY_TABLE}
     INVENTORY_TYPES: ${env:INVENTORY_TYPES}
     VERSION: ${env:VERSION}
+    GAME_SECRET_KEY: ${env:GAME_SECRET_KEY}
 
   iam:
     role:
