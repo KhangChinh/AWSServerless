@@ -7,22 +7,37 @@ getSudokuLevels:
         authorizer:
           name: myCognitoAuth
 getMinesweeperLevels:
-  handler: src/minigameFunction/minigameService.handleGetMinesweeperLevels
+  handler: src/minigameFunction/minesweeperService.handleGetMinesweeperLevels
   events:
     - httpApi:
         path: /minigame/minesweeperlevels
         method: get
         authorizer:
           name: myCognitoAuth
-startGameSession:
-  handler: src/minigameFunction/minigameService.handleStartSession
+startGameSudokuSession:
+  handler: src/minigameFunction/minigameService.handleStartSudokuSession
   events:
     - httpApi:
         path: /minigame/sudokulevels/start-game
         method: post
         authorizer:
           name: myCognitoAuth
-
+startGameMinesweeperSession:
+  handler: src/minigameFunction/minesweeperService.handleStartMinesweeperSession
+  events:
+    - httpApi:
+        path: /minigame/minesweeperlevels/start-game
+        method: post
+        authorizer:
+          name: myCognitoAuth
+revealMinesweeperCell:
+  handler: src/minigameFunction/minesweeperService.handleReveal
+  events:
+    - httpApi:
+        path: /minigame/minesweeper/reveal
+        method: post
+        authorizer:
+          name: myCognitoAuth
 checkSudokuBoard:
   handler: src/minigameFunction/minigameService.handleCheckSudokuBoard
   events:

@@ -108,6 +108,10 @@ const handleGetSudokuLevels = async (event) => {
         return await syncedErrorResponse(getUserId(event), 500, "Lỗi máy chủ nội bộ");
     }
 };
+// ═══════════════════════════════════════════════════════
+// GET /minigame/levels?gameId=minesweeper&lastKey=...
+// Lấy danh sách màn chơi kèm score cao nhất của user
+// ═══════════════════════════════════════════════════════
 const handleGetMinesweeperLevels = async (event) => {
     const userId = getUserId(event);
     if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
@@ -186,7 +190,7 @@ const handleGetMinesweeperLevels = async (event) => {
 // POST /minigame/sudokulevels/start-game
 // Body: { gameId: string, levelId: string }
 // ═══════════════════════════════════════════════════════
-const handleStartSession = async (event) => {
+const handleStartSudokuSession = async (event) => {
     const userId = getUserId(event);
     console.log(">>> [DEBUG] userId:", userId, "| Type:", typeof userId);
 
@@ -257,7 +261,142 @@ const handleStartSession = async (event) => {
             seed = boardData.seed;
             solutionGrid = boardData.solutionGrid;
             puzzleGrid = boardData.puzzleGrid;
-        } else if (gameId === 'minesweeper') {
+        } else {
+            return await syncedErrorResponse(getUserId(event), 400, "Unsupported gameId");
+        }
+
+        // ==============================================================================
+        // 4. Tạo Session Data
+        // ==============================================================================
+        const sessionItem = {
+            PK: userId,
+            SK: `session#${gameId}`,
+            levelId: levelId,
+            startTime: now,
+            sanityCost: sanityCost,
+            status: "PENDING",
+            checkCount: 5,
+            seed: seed,
+            solutionGrid: solutionGrid,
+
+        };
+
+        // ==============================================================================
+        // 5. Lưu Session và Cập nhật Profile song song
+        // ==============================================================================
+        console.log(">>> [DEBUG] Bắt đầu gọi Promise.all số 2 (Save Session & Update Profile)...");
+
+        const putSessionPromise = docClient.send(new PutCommand({
+            TableName: process.env.MINIGAME_TABLE,
+            Item: sessionItem
+        })).catch(err => {
+            console.error(">>> [ERROR BẮT ĐƯỢC] Lỗi tại Put Session (MINIGAME_TABLE). Item gửi đi:", JSON.stringify(sessionItem));
+            throw err;
+        });
+
+        const updateProfilePromise = docClient.send(new UpdateCommand({
+            TableName: process.env.USER_TABLE,
+            Key: { PK: userId },
+            UpdateExpression: "SET budget = :b, updatedAt = :u",
+            ExpressionAttributeValues: { ":b": budget, ":u": now }
+        })).catch(err => {
+            console.error(">>> [ERROR BẮT ĐƯỢC] Lỗi tại Update Profile (USER_TABLE). Key gửi đi:", JSON.stringify({ PK: userId }));
+            throw err;
+        });
+
+        await Promise.all([putSessionPromise, updateProfilePromise]);
+        console.log(">>> [DEBUG] Lưu Session & Cập nhật Profile thành công!");
+
+        // ==============================================================================
+        // 6. Trả kết quả về cho client
+        // ==============================================================================
+        profile.budget = budget;
+
+        return successResponse({
+            success: true,
+            profile: profile,
+            sessionData: {
+                sessionId: sessionItem.SK,
+                seed: sessionItem.seed,
+                checkCount: sessionItem.checkCount,
+                puzzleGrid: puzzleGrid, // 👈 GỬI ĐỀ BÀI XUỐNG CHO CLIENT RENDER 
+                status: sessionItem.status
+            },
+            baseMapConfig: level.baseMapConfig
+        });
+
+    } catch (error) {
+        console.error(">>> [CATCH CUỐI CÙNG] Lỗi Start Game Session:", error);
+        return await syncedErrorResponse(getUserId(event), 500, error.message || "Lỗi xử lý tạo màn chơi");
+    }
+};
+const handleStartMinesweeperSession = async (event) => {
+    const userId = getUserId(event);
+    console.log(">>> [DEBUG] userId:", userId, "| Type:", typeof userId);
+
+    if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
+
+    try {
+        const body = JSON.parse(event.body || "{}");
+        const { gameId, levelId } = body;
+
+        console.log(">>> [DEBUG] gameId:", gameId, "| Type:", typeof gameId);
+        console.log(">>> [DEBUG] levelId:", levelId, "| Type:", typeof levelId);
+
+        if (!gameId || !levelId) return await syncedErrorResponse(getUserId(event), 400, "Missing gameId or levelId");
+
+        const now = Date.now();
+
+        // ==============================================================================
+        // 1. Fetch Profile và Level Info
+        // ==============================================================================
+        console.log(">>> [DEBUG] Bắt đầu gọi Promise.all số 1 (Fetch Profile & Level)...");
+
+        const fetchProfilePromise = docClient.send(new GetCommand({
+            TableName: process.env.USER_TABLE,
+            Key: { PK: userId }
+        })).catch(err => {
+            console.error(">>> [ERROR BẮT ĐƯỢC] Lỗi tại Fetch Profile (USER_TABLE). Key gửi đi:", JSON.stringify({ PK: userId }));
+            throw err;
+        });
+
+        const fetchLevelPromise = docClient.send(new GetCommand({
+            TableName: process.env.MINIGAME_TABLE,
+            Key: { PK: gameId, SK: levelId }
+        })).catch(err => {
+            console.error(">>> [ERROR BẮT ĐƯỢC] Lỗi tại Fetch Level (MINIGAME_TABLE). Key gửi đi:", JSON.stringify({ PK: gameId, SK: levelId }));
+            throw err;
+        });
+
+        const [profileRes, levelRes] = await Promise.all([fetchProfilePromise, fetchLevelPromise]);
+        console.log(">>> [DEBUG] Fetch thành công! Có Profile:", !!profileRes.Item, "| Có Level:", !!levelRes.Item);
+
+        const profile = profileRes.Item;
+        const level = levelRes.Item;
+
+        if (!profile) return await syncedErrorResponse(getUserId(event), 404, "Profile not found");
+        if (!level) return await syncedErrorResponse(getUserId(event), 404, "Level not found");
+
+        // ==============================================================================
+        // 2. Kiểm tra và trừ Sanity
+        // ==============================================================================
+        let budget = profile.budget || {};
+        const sanityCost = level.sanityCost || 0;
+
+        if (budget.sanity < sanityCost) {
+            return await syncedErrorResponse(getUserId(event), 400, "Not enough sanity");
+        }
+
+        budget.sanity -= sanityCost;
+
+        // ==============================================================================
+        // 3. Tách logic tạo màn chơi dựa trên gameId
+        // ==============================================================================
+        let seed = "";
+        let solutionGrid = "";
+        let puzzleGrid = ""; // 👈 BỔ SUNG KHAI BÁO BIẾN
+
+        if (gameId === 'minesweeper') {
             const boardData = generateMinesweeperBoard(level.baseMapConfig);
             seed = boardData.seed;
             solutionGrid = boardData.solutionGrid;
@@ -410,47 +549,6 @@ const checkSudokuCheat = (session, clientLogs, currentGridStr) => {
     }
 
     return { isCheat: false, isBoardCorrect };
-};
-const checkMinesweeperCheat = (session, clientLogs, finalGridStr) => {
-    const now = Date.now();
-    const timeSpentMs = now - session.startTime;
-    const solutionGrid = session.solutionGrid;
-
-    // 1. Kiểm tra thời gian ảo (VD < 1s cho bàn 9x9)
-    if (timeSpentMs < 1000) {
-        return { isCheat: true, reason: "Thời gian hoàn thành bất thường." };
-    }
-
-    // 2. Kiểm tra tính hợp lệ của lưới gửi lên
-    let isWin = true;
-    let openedCells = 0;
-    let totalSafeCells = 0;
-
-    for (let i = 0; i < solutionGrid.length; i++) {
-        const correctCell = solutionGrid[i]; // '*', '0', '1'...'8'
-        const playerCell = finalGridStr[i];  // 'H' (Hidden), 'F' (Flag), hoặc số đã mở
-
-        if (correctCell !== '*') totalSafeCells++;
-
-        // Nếu người chơi báo mở trúng mìn (báo thua từ client)
-        if (playerCell === '*') {
-            isWin = false;
-        }
-        // Nếu người chơi mở một ô an toàn, ô đó phải khớp với đáp án
-        else if (playerCell !== 'H' && playerCell !== 'F') {
-            openedCells++;
-            if (playerCell !== correctCell) {
-                return { isCheat: true, reason: "Bàn cờ có dữ liệu không khớp với Server Seed." };
-            }
-        }
-    }
-
-    // Thắng nếu tổng số ô an toàn đã được mở bằng tổng số ô an toàn của map
-    if (isWin && openedCells !== totalSafeCells) {
-        isWin = false;
-    }
-
-    return { isCheat: false, isWin };
 };
 // ═══════════════════════════════════════════════════════
 // POST /minigame/sudokulevels/check
@@ -973,8 +1071,7 @@ const handleGetLeaderboard = async (event) => {
 
 export {
     handleGetSudokuLevels,
-    handleGetMinesweeperLevels,
-    handleStartSession,
+    handleStartSudokuSession,
     handleCheckSudokuBoard,
     handleEndSudokuSession,
     handleLeaderboardWorker,
