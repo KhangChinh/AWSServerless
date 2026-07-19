@@ -158,7 +158,7 @@ const handleGetMinesweeperLevels = async (event) => {
         let scoreMap = {};
         const userScores = batchResult.Responses?.[process.env.MINIGAME_TABLE] || [];
         for (const item of userScores) {
-            const levelId = item.SK.replace(`score#sudoku#`, "");
+            const levelId = item.SK.replace(`score#minesweeper#`, "");
             scoreMap[levelId] = {
                 personalBest: item.personalBest,
                 achievedAt: item.achievedAt,
@@ -973,6 +973,7 @@ const handleGetLeaderboard = async (event) => {
 
 export {
     handleGetSudokuLevels,
+    handleGetMinesweeperLevels,
     handleStartSession,
     handleCheckSudokuBoard,
     handleEndSudokuSession,
