@@ -5,9 +5,9 @@ export const generateMinesweeperBoard = (baseMapConfig) => {
     const boardId = crypto.randomBytes(8).toString('hex');
 
     // Parse cấu hình (mặc định 9x9, 10 mìn)
-    const [rows, cols] = (baseMapConfig.gridSize || "9x9").split('x').map(Number);
-    const mineCount = baseMapConfig.mineCount || 10;
-    const safeRadius = baseMapConfig.safeStartRadius || 1;
+    const [rows, cols] = (baseMapConfig.gridSize).split('x').map(Number);
+    const mineCount = baseMapConfig.mineCount;
+    const safeRadius = baseMapConfig.safeStartRadius;
     const totalCells = rows * cols;
 
     // Xác định tâm bản đồ để làm vùng an toàn (safeStartRadius)

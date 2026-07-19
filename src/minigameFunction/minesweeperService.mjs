@@ -169,7 +169,14 @@ const handleStartMinesweeperSession = async (event) => {
             // Phân tích config để lấy kích thước bàn cờ lưu vào token
             const [rows, cols] = (level.baseMapConfig.gridSize || "9x9").split('x').map(Number);
             const totalMines = level.baseMapConfig.mineCount || 10;
-
+            const initialRevealedMap = {};
+            for (let i = 0; i < puzzleGrid.length; i++) {
+                if (puzzleGrid[i] !== 'H') {
+                    const r = Math.floor(i / cols);
+                    const c = i % cols;
+                    initialRevealedMap[`${r}-${c}`] = true;
+                }
+            }
             // MÃ HÓA TRẠNG THÁI GAME
             const stateObj = {
                 sessionId: sessionId,
@@ -177,7 +184,7 @@ const handleStartMinesweeperSession = async (event) => {
                 rows: rows,
                 cols: cols,
                 totalMines: totalMines,
-                revealedCellsMap: {}, // Lưu danh sách các ô đã được mở (hiện tại là trống)
+                revealedCellsMap: initialRevealedMap, // Lưu danh sách các ô đã được mở (hiện tại là trống)
                 turnCount: 0       // Chống spam / replay attack
             };
 
