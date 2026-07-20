@@ -10,7 +10,7 @@ const BANNER_CONFIGS = [
         itemType: "background",
         durationDays: 1,
         rates: { base5Star: 0.01, base4Star: 0.09, pity5StarLimit: 80, pity4StarLimit: 10, rateUpChance: 0.5 }
-    }
+    },
 ];
 
 const shuffleArray = (array) => [...array].sort(() => 0.5 - Math.random());

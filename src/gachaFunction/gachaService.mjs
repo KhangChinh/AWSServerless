@@ -4,6 +4,15 @@ import { successResponse } from "../response.mjs";
 import { syncedErrorResponse } from "../errorSync.mjs";
 import { mapCosmeticAssets, fetchInventoryPage } from "../syncFunction/syncService.mjs";
 
+const SANITY_CONFIG = {
+    // 1. Số lượng Sanity nhận được khi roll ra 3 sao 
+    // (Mặc định: random từ 20, 25, 30... đến 50)
+    get3StarSanityAmount: () => Math.floor(Math.random() * 7) * 5 + 20,
+    // 2. Số lượng Sanity quy đổi khi ra trùng vật phẩm
+    duplicate5Star: 150, // Trùng đồ 5 sao -> Được 150 Sanity
+    duplicate4Star: 70   // Trùng đồ 4 sao -> Được 70 Sanity
+};
+
 const getUserId = (event) => {
     const auth = event.requestContext?.authorizer;
     return auth?.jwt?.claims?.sub || auth?.claims?.sub || null;
@@ -127,7 +136,8 @@ export const handleGacha = async (event) => {
 
         for (const code of rarityMap) {
             if (code === 3) {
-                const randomSanity = Math.floor(Math.random() * 11) * 5 + 50; // Random 50, 55... 100
+                // SỬ DỤNG HÀM CONFIG SANITY TẠI ĐÂY
+                const randomSanity = SANITY_CONFIG.get3StarSanityAmount();
                 pulledResults.push({ type: 'sanity', amount: randomSanity, rarity: 3 });
             } else {
                 let pool = [];
@@ -182,8 +192,8 @@ export const handleGacha = async (event) => {
                 const itemImageUrl = item.itemType === 'pet' ? item.assets?.idle : item.assets?.css;
 
                 if (isOwned) {
-                    // Trùng lặp -> Quy đổi Sanity
-                    sanityConverted = rarity === 5 ? 150 : 80;
+                    // SỬ DỤNG CONFIG QUY ĐỔI SANITY KHI BỊ TRÙNG ĐỒ TẠI ĐÂY
+                    sanityConverted = rarity === 5 ? SANITY_CONFIG.duplicate5Star : SANITY_CONFIG.duplicate4Star;
                     sanity += sanityConverted;
                     clientReturnItems.push({
                         imageUrl: itemImageUrl,

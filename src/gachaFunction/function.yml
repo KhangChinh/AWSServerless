@@ -1,8 +1,15 @@
+gacha:
+  handler: src/gachaFunction/gachaService.handleGacha
+  events:
+    - httpApi:
+        path: /gacha
+        method: post
+        authorizer:
+          name: myCognitoAuth
+
 refreshGachaBanners:
   handler: src/gachaFunction/refreshBannerService.handleRefreshBanners
   events:
-    # Trigger chạy mỗi ngày vào lúc 17:00 UTC (Tức 0h00 sáng giờ Việt Nam)
-    # Hàm sẽ tự check banner nào hết hạn thì mới refresh
     - schedule: 
         description: Quét và làm mới các banner Gacha hết hạn mỗi đêm
         rate: cron(0 17 * * ? *)
