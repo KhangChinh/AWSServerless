@@ -288,7 +288,7 @@ const handleReveal = async (event) => {
             return await syncedErrorResponse(userId, 400, "Invalid or expired game state");
         }
 
-        const { sessionId, solutionGrid, rows, cols, totalMines, revealedCellsMap, turnCount } = state;
+        const { solutionGrid, rows, cols, totalMines, revealedCellsMap, turnCount } = state;
         const clickIndex = row * cols + col;
         const cellValue = solutionGrid[clickIndex];
 
@@ -296,7 +296,13 @@ const handleReveal = async (event) => {
         if (cellValue === '*') {
             // Dẫm mìn -> Thua
             // Ở đây bạn có thể gọi DynamoDB update status = LOST (Tuỳ logic database của bạn)
-
+            await docClient.send(new UpdateCommand({
+                TableName: process.env.MINIGAME_TABLE,
+                Key: { PK: userId, SK: "session#minesweeper" }, // sessionId lấy từ biến state
+                UpdateExpression: "SET #st = :s",
+                ExpressionAttributeNames: { "#st": "status" },
+                ExpressionAttributeValues: { ":s": "LOST" }
+            })).catch(e => console.error("Lỗi update DB khi dẫm mìn", e));
             return successResponse({
                 result: 'lost',
                 message: 'Bùm! Bạn đã dẫm phải mìn.',
@@ -304,8 +310,6 @@ const handleReveal = async (event) => {
             });
         }
 
-        // 3. Chạy thuật toán loang để tìm các ô an toàn
-        // (revealedCellsMap là object lưu { "r-c": true } để biết ô nào đã mở rồi)
         const currentRevealedMap = revealedCellsMap || {};
         const newlyRevealed = runFloodFill(solutionGrid, rows, cols, row, col, currentRevealedMap);
 
@@ -316,7 +320,13 @@ const handleReveal = async (event) => {
         if (totalRevealedNow >= totalSafeCells) {
             // Thắng Game
             // Update DynamoDB status = WIN (Gọi updateCommand tương tự hàm handleSubmitMinesweeper)
-
+            await docClient.send(new UpdateCommand({
+                TableName: process.env.MINIGAME_TABLE,
+                Key: { PK: userId, SK: "session#minesweeper" },
+                UpdateExpression: "SET #st = :s",
+                ExpressionAttributeNames: { "#st": "status" },
+                ExpressionAttributeValues: { ":s": "WON" }
+            })).catch(e => console.error("Lỗi update DB khi win", e));
             return successResponse({
                 result: 'win',
                 newlyRevealed: newlyRevealed,
@@ -345,8 +355,8 @@ const handleEndMinesweeperSession = async (event) => {
     if (!userId) return await syncedErrorResponse(userId, 401, "Unauthorized");
 
     try {
-        const body = JSON.parse(event.body || "{}");
-        const { levelId, finalGrid, actionLogs, endState } = body;
+        const body = JSON.parse(event.body);
+        const { levelId, endState } = body;
         const now = Date.now();
 
         // 1. Lấy Session & Profile
@@ -357,32 +367,59 @@ const handleEndMinesweeperSession = async (event) => {
 
         const session = sessionRes.Item;
         const profile = profileRes.Item;
-
-        if (!session || session.status !== "PENDING")
-            return await syncedErrorResponse(userId, 400, "Phiên chơi không hợp lệ.");
-
+        // 1. Kiểm tra tồn tại và block cày tiền lặp (spam API)
+        if (!session) return await syncedErrorResponse(userId, 400, "Phiên chơi không hợp lệ.");
+        if (session.status === "COMPLETED" || session.status === "CANCELLED") {
+            return await syncedErrorResponse(userId, 400, "Phần thưởng đã được nhận hoặc phiên đã hủy.");
+        }
         let budget = profile.budget;
 
         // Xử lý thoát sớm
         if (endState === "quit") {
             const refundSanity = Math.floor(session.sanityCost * 0.5);
             budget.sanity += refundSanity;
-            // ... (Cập nhật DB status = CANCELLED và budget như Sudoku)
+            await Promise.all([
+                docClient.send(new UpdateCommand({
+                    TableName: process.env.USER_TABLE,
+                    Key: { PK: userId },
+                    UpdateExpression: "SET budget = :b",
+                    ExpressionAttributeValues: { ":b": budget }
+                })),
+                docClient.send(new UpdateCommand({
+                    TableName: process.env.MINIGAME_TABLE,
+                    Key: { PK: userId, SK: "session#minesweeper" },
+                    UpdateExpression: "SET #st = :s",
+                    ExpressionAttributeNames: { "#st": "status" },
+                    ExpressionAttributeValues: { ":s": "CANCELLED" }
+                }))
+            ]);
             return successResponse({ success: true, result: "lost", budget, refundSanity });
         }
-
-        // Kiểm tra gian lận và thắng/thua
-        const cheatResult = checkMinesweeperCheat(session, actionLogs, finalGrid);
-        if (cheatResult.isCheat) {
-            return await syncedErrorResponse(userId, 403, `Gian lận: ${cheatResult.reason}`);
+        if (session.status === "PENDING") {
+            return await syncedErrorResponse(userId, 403, "Bạn chưa hoàn thành ván chơi hợp lệ!");
         }
-
-        if (!cheatResult.isWin) {
-            // Thua do đạp mìn hoặc chưa mở hết
-            // ... (Cập nhật DB status = UNCOMPLETED như Sudoku)
-            return successResponse({ success: true, result: "lost", budget, refundSanity: 0 });
+        // 2. KIỂM TRA "SỔ ĐEN" TRONG DB (Thay thế cho checkCheat)
+        // Nếu nó hack undo, DB đã lưu status là LOST từ cái lúc nó đạp mìn đầu tiên rồi.
+        if (session.status === "LOST") {
+            const refundSanity = Math.floor(session.sanityCost * 0.5);
+            budget.sanity += refundSanity;
+            await Promise.all([
+                docClient.send(new UpdateCommand({
+                    TableName: process.env.USER_TABLE,
+                    Key: { PK: userId },
+                    UpdateExpression: "SET budget = :b",
+                    ExpressionAttributeValues: { ":b": budget }
+                })),
+                docClient.send(new UpdateCommand({
+                    TableName: process.env.MINIGAME_TABLE,
+                    Key: { PK: userId, SK: "session#minesweeper" },
+                    UpdateExpression: "SET #st = :s",
+                    ExpressionAttributeNames: { "#st": "status" },
+                    ExpressionAttributeValues: { ":s": "UNCOMPLETED" }
+                }))
+            ]);
+            return successResponse({ success: true, result: "lost", budget, refundSanity });
         }
-
         // Lấy thông tin Level tính điểm
         const levelRes = await docClient.send(new GetCommand({
             TableName: process.env.MINIGAME_TABLE,
@@ -400,12 +437,12 @@ const handleEndMinesweeperSession = async (event) => {
 
         // Lấy Score cũ và Stats
         const [oldScoreRes, statsRes] = await Promise.all([
-            docClient.send(new GetCommand({ TableName: process.env.MINIGAME_TABLE, Key: { PK: userId, SK: `score#sudoku#${session.levelId}` } })),
-            docClient.send(new GetCommand({ TableName: process.env.MINIGAME_TABLE, Key: { PK: userId, SK: "stats#sudoku" } }))
+            docClient.send(new GetCommand({ TableName: process.env.MINIGAME_TABLE, Key: { PK: userId, SK: `score#minesweeper#${session.levelId}` } })),
+            docClient.send(new GetCommand({ TableName: process.env.MINIGAME_TABLE, Key: { PK: userId, SK: "stats#minesweeper" } }))
         ]);
 
         const oldScore = oldScoreRes.Item;
-        let stats = statsRes.Item || { PK: userId, SK: "stats#sudoku", gameId: "sudoku", totalScore: 0, levelsCompleted: 0 };
+        let stats = statsRes.Item || { PK: userId, SK: "stats#minesweeper", gameId: "minesweeper", totalScore: 0, levelsCompleted: 0 };
 
         let isPB = false;
         let scoreToSave = score;
@@ -428,7 +465,7 @@ const handleEndMinesweeperSession = async (event) => {
             // 1. Đổi status session
             docClient.send(new UpdateCommand({
                 TableName: process.env.MINIGAME_TABLE,
-                Key: { PK: userId, SK: "session#sudoku" },
+                Key: { PK: userId, SK: "session#minesweeper" },
                 UpdateExpression: "SET #st = :s",
                 ExpressionAttributeNames: { "#st": "status" },
                 ExpressionAttributeValues: { ":s": "COMPLETED" }
@@ -436,7 +473,7 @@ const handleEndMinesweeperSession = async (event) => {
             // 2. Lưu Score màn chơi
             docClient.send(new PutCommand({
                 TableName: process.env.MINIGAME_TABLE,
-                Item: { PK: userId, SK: `score#sudoku#${session.levelId}`, personalBest: scoreToSave, achievedAt: Math.floor(now / 1000) }
+                Item: { PK: userId, SK: `score#minesweeper#${session.levelId}`, personalBest: scoreToSave, achievedAt: Math.floor(now / 1000) }
             })),
             // 3. Lưu Stats tổng
             docClient.send(new PutCommand({
@@ -456,7 +493,7 @@ const handleEndMinesweeperSession = async (event) => {
         const levelParams = {
             TableName: process.env.MINIGAME_TABLE,
             KeyConditionExpression: "PK = :gid",
-            ExpressionAttributeValues: { ":gid": "sudoku" },
+            ExpressionAttributeValues: { ":gid": "minesweeper" },
             Limit: 10,
         };
         const levelsResult = await docClient.send(new QueryCommand(levelParams));
@@ -466,7 +503,7 @@ const handleEndMinesweeperSession = async (event) => {
         if (fetchedLevels.length > 0) {
             const scoreKeys = fetchedLevels.map((lvl) => ({
                 PK: userId,
-                SK: `score#sudoku#${lvl.SK}`,
+                SK: `score#minesweeper#${lvl.SK}`,
             }));
 
             const batchResult = await docClient.send(
@@ -480,7 +517,7 @@ const handleEndMinesweeperSession = async (event) => {
             let scoreMap = {};
             const userScores = batchResult.Responses?.[process.env.MINIGAME_TABLE] || [];
             for (const item of userScores) {
-                const lvlId = item.SK.replace(`score#sudoku#`, "");
+                const lvlId = item.SK.replace(`score#minesweeper#`, "");
                 scoreMap[lvlId] = {
                     personalBest: item.personalBest,
                     achievedAt: item.achievedAt,
@@ -512,9 +549,61 @@ const handleEndMinesweeperSession = async (event) => {
         return await syncedErrorResponse(userId, 500, "Lỗi máy chủ.");
     }
 };
+const handleLeaderboardMinesweeperWorker = async (event) => {
+    try {
+        console.log("Bắt đầu chạy Worker cập nhật Leaderboard Minesweeper...");
+
+        // 1. Quét toàn bộ Stats (Có thể dùng Query nếu setup GSI, hiện dùng Scan)
+        const scanParams = {
+            TableName: process.env.MINIGAME_TABLE,
+            FilterExpression: "SK = :sk",
+            ExpressionAttributeValues: {
+                ":sk": "stats#minesweeper"
+            }
+        };
+
+        const result = await docClient.send(new ScanCommand(scanParams));
+        const allStats = result.Items || [];
+
+        // 2. Sắp xếp lấy Top 10
+        const top10Players = allStats
+            .sort((a, b) => b.totalScore - a.totalScore)
+            .slice(0, 10)
+            .map(stat => ({
+                userId: stat.PK,
+                totalScore: stat.totalScore,
+                levelsCompleted: stat.levelsCompleted,
+                displayInfo: stat.displayInfo || { name: "Unknown", avatarUrl: "", equippedFrame: null }
+            }));
+
+        // 3. Tính toán expiresAt: thời điểm hiện tại + 11 phút (tính bằng giây)
+        const expiresAt = Math.floor(Date.now() / 1000) + (11 * 60);
+
+        // 4. Object lưu đè vào DynamoDB
+        const leaderboardData = {
+            PK: "leaderboard",
+            SK: "minesweeper",
+            topPlayers: top10Players,
+            expiresAt: expiresAt // Dùng expiresAt thay cho updatedAt
+        };
+
+        // 5. Lưu xuống DynamoDB
+        await docClient.send(new PutCommand({
+            TableName: process.env.MINIGAME_TABLE,
+            Item: leaderboardData
+        }));
+
+        console.log("Cập nhật Leaderboard Minesweeper thành công! expiresAt:", expiresAt);
+        return { statusCode: 200, body: "Success" };
+    } catch (err) {
+        console.error("Lỗi khi chạy Leaderboard Worker:", err);
+        throw err;
+    }
+};
 export {
     handleGetMinesweeperLevels,
     handleStartMinesweeperSession,
     handleReveal,
-    handleEndMinesweeperSession
+    handleEndMinesweeperSession,
+    handleLeaderboardMinesweeperWorker
 }

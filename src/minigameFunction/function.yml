@@ -55,7 +55,14 @@ endSudokuSession:
         method: post
         authorizer:
           name: myCognitoAuth
-
+endMinesweeperSession:
+  handler: src/minigameFunction/minesweeperService.handleEndMinesweeperSession
+  events:
+    - httpApi:
+        path: /minigame/minesweeperlevels/end-session
+        method: post
+        authorizer:
+          name: myCognitoAuth
 getLeaderboard:
   handler: src/minigameFunction/minigameService.handleGetLeaderboard
   events:
@@ -64,7 +71,12 @@ getLeaderboard:
         method: get
         authorizer:
           name: myCognitoAuth
-
+leaderboardMinesweeperWorker:
+  handler: src/minigameFunction/minesweeperService.handleLeaderboardMinesweeperWorker
+  events:
+    - schedule:
+        description: Trigger update leaderboard Minesweeper moi 10 phut
+        rate: rate(10 minutes)
 leaderboardWorker:
   handler: src/minigameFunction/minigameService.handleLeaderboardWorker
   events:
