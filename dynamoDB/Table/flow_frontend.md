@@ -21,7 +21,7 @@ khi mở app lại (đã đăng nhập):
 khi app từ tray trở lại: áp dụng logic `lastSyncAll` 5 phút giống trên.
 
 response sync-all có dạng:
-- `profile`: object profile đầy đủ (equippedCosmetics đã map sang object có { id, name, imageUrl, assets })
+- `profile`: object profile đầy đủ (equippedCosmetics đã map sang object có { id, name, assets })
 - `inventory`: object dạng `{ background: { items: [...], lastEvaluatedKey }, frame: {...}, ... }`. mỗi loại 10 item/trang
 - `gachaHistory`: mảng 30 bản ghi đầu tiên, `gachaHistoryLastKey`
 - `social`: mảng 10 bạn bè đầu tiên, `socialLastKey`
@@ -113,7 +113,7 @@ thuật toán gacha (server-side): hard pity 5★ ở lượt 80 (100%), base ra
 xử lý trùng lặp: nếu vật phẩm đã sở hữu hoặc trùng trong cùng x10 → quy đổi sang sanity (5★ = 150, 4★ = 80). rarity 3 → random sanity 50-100 (bước 5).
 
 response trả:
-- `pulledItems`: mảng kết quả hiển thị, mỗi item: `{ imageUrl, name, rarity, isConverted, convertedTo? }`
+- `pulledItems`: mảng kết quả hiển thị, mỗi item: `{ name, rarity, isConverted, convertedTo? }`
 - `profile`: profile mới nhất đã map cosmeticAssets (budget + gachaStats cập nhật)
 - `inventory`: object chỉ chứa itemType có vật phẩm mới: `{ background: {items, lastEvaluatedKey}, ... }`
 - `gachaHistory`: trang 1 lịch sử mới nhất (30 bản ghi), `gachaHistoryLastKey`

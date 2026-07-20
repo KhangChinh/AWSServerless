@@ -48,7 +48,7 @@
 > Ghi chú:
 > - `avatarUrl` lưu dạng path tương đối (VD: `avatars/usr_12345.jpg?t=...`), frontend tự ghép domain CDN.
 > - `lastSearchAt` dùng cho rate-limit tìm kiếm bạn bè (cooldown 5 giây).
-> - `equippedCosmetics` lưu SK của item trong ItemData, khi sync/profile trả về sẽ được map sang object có `{ id, name, imageUrl, assets }` qua hàm `mapCosmeticAssets()`.
+> - `equippedCosmetics` lưu SK của item trong ItemData, khi sync/profile trả về sẽ được map sang object có `{ id, name, assets }` qua hàm `mapCosmeticAssets()`.
 > - Khi khởi tạo user, các item mặc định (bg_default, frame_none, title_none) được lấy từ ItemData và tạo sẵn trong Inventory.
 
 ---
@@ -62,7 +62,6 @@
     "SK": "cyberpunk_2077",
     "rarity": 5,
     "name": "Theme Cyberpunk",
-    "imageUrl": "theme/cyberpunk_2077/cyberpunk.png",
     "assets": {
         "css": "theme/cyberpunk_2077/assets/style.css",
         "bgm": "theme/cyberpunk_2077/assets/music.mp3",
@@ -75,7 +74,7 @@
 ```
 
 > Ghi chú:
-> - `imageUrl` và `assets` lưu path tương đối, frontend ghép CDN domain.
+> -  `assets` lưu path tương đối, frontend ghép CDN domain.
 > - `collectFrom` ghi nhận nguồn gốc vật phẩm: `"gacha"`, `"eCoinShop"`, hoặc `"system"` (mặc định khi khởi tạo).
 > - **GSI `ItemTypeIndex`**: Partition Key = `PK` (userId), Sort Key = `itemType`. Dùng để query inventory theo loại vật phẩm (background, frame, title, button).
 > - Phân trang: mỗi trang 10 item, query theo `ItemTypeIndex` với `ScanIndexForward: false` (mới nhất trước).
@@ -113,7 +112,6 @@
     "SK": "cyberpunk_2077",
     "rarity": 5,
     "name": "Theme Cyberpunk",
-    "imageUrl": "theme/cyberpunk_2077/cyberpunk.png",
     "assets": {
         "css": "theme/cyberpunk_2077/assets/style.css",
         "bgm": "theme/cyberpunk_2077/assets/music.mp3",
@@ -142,7 +140,6 @@
         {
             "itemId": "frame_stone_1",
             "name": "Khung Thạch Anh",
-            "imageUrl": "frame/frame_stone_1/stone.png",
             "rarity": 4,
             "itemType": "frame",
             "currencyType": "eCoin",

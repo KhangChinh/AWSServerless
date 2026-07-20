@@ -33,7 +33,6 @@ const handleRefresheCoinShop = async (event) => {
         const selectedItems = shuffled.slice(0, 5).map(item => ({
             itemId: item.SK,
             name: item.name,
-            imageUrl: item.imageUrl,
             rarity: item.rarity,
             itemType: item.itemType,
             assets: item.assets,
@@ -212,7 +211,6 @@ const handleBuyeCoinItem = async (event) => {
                             itemType: itemToBuy.itemType,
                             assets: itemToBuy.assets,
                             name: itemToBuy.name,
-                            imageUrl: itemToBuy.imageUrl,
                             rarity: itemToBuy.rarity
                         },
                         ConditionExpression: "attribute_not_exists(SK)" // Đảm bảo không bị ghi đè nếu đã có

@@ -5,7 +5,7 @@
 -sync all (POST /sync-all):
     +client gửi body: { getProfile, getDaily, getInventory, getGachaHistory, getSocial } — các cờ boolean cho biết cần lấy module nào
     +server luôn lấy profile từ DB (dùng nội bộ), sau đó kiểm tra từng cờ:
-        ~getProfile = true: map cosmeticAssets (chuyển SK trong equippedCosmetics sang object có id, name, imageUrl, assets bằng BatchGetItem vào ItemData), trả profile
+        ~getProfile = true: map cosmeticAssets (chuyển SK trong equippedCosmetics sang object có id, name, assets bằng BatchGetItem vào ItemData), trả profile
         ~getInventory = true: lấy trang đầu tiên mỗi loại itemType (background, frame, title, button...) qua GSI ItemTypeIndex, mỗi loại 10 item, ScanIndexForward: false. Trả object dạng { background: {items, lastEvaluatedKey}, frame: {...}, ... }
         ~getGachaHistory = true: lấy 30 bản ghi đầu tiên kèm lastEvaluatedKey
         ~getSocial = true: lấy 10 bản ghi đầu tiên kèm lastEvaluatedKey
@@ -248,7 +248,7 @@
     +upload file .zip vào `uploads/items/` → Lambda `processZip`:
         ~giải nén → đọc data.json lấy metadata item
         ~upload tất cả asset (css, image, audio, json) lên S3 (public-assets/items/{itemType}/{itemId}/...)
-        ~map URL tương đối vào item.imageUrl và item.assets
+        ~map URL tương đối vào item.assets
         ~ghi item vào ItemData table
     +upload file .json vào `uploads/levels/` → Lambda `processJson` → ghi vào Minigame table
     +upload file .json vào `uploads/quests/` → Lambda `processJson` → ghi vào Quest table

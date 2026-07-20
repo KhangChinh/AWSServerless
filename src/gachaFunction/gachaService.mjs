@@ -170,17 +170,29 @@ export const handleGacha = async (event) => {
                 const { item, rarity } = pull;
                 const isOwned = alreadyOwned.has(item.SK) || newInventorySkSet.has(item.SK);
 
+                // Xác định đường dẫn hình ảnh dựa trên itemType và assets
+                const itemImageUrl = item.itemType === 'pet' ? item.assets?.idle : item.assets?.css;
+
                 if (isOwned) {
                     // Trùng lặp -> Quy đổi
                     sanityConverted = rarity === 5 ? 150 : 80;
                     sanity += sanityConverted;
                     clientReturnItems.push({
-                        imageUrl: item.imageUrl, name: item.name, rarity, isConverted: true, convertedTo: sanityConverted
+                        imageUrl: itemImageUrl,
+                        name: item.name,
+                        rarity,
+                        isConverted: true,
+                        convertedTo: sanityConverted
                     });
                 } else {
                     // Mới -> Thêm vào túi
                     newInventorySkSet.add(item.SK);
-                    clientReturnItems.push({ imageUrl: item.imageUrl, name: item.name, rarity, isConverted: false });
+                    clientReturnItems.push({
+                        imageUrl: itemImageUrl,
+                        name: item.name,
+                        rarity,
+                        isConverted: false
+                    });
 
                     writePromises.push(docClient.send(new PutCommand({
                         TableName: process.env.INVENTORY_TABLE,
@@ -188,7 +200,8 @@ export const handleGacha = async (event) => {
                             PK: userId, SK: item.SK,
                             acquiredAt: new Date(now).toISOString(),
                             assets: item.assets, itemType: item.itemType,
-                            name: item.name, imageUrl: item.imageUrl, rarity
+                            name: item.name, rarity
+                            // Đã xóa trường imageUrl ở đây
                         }
                     })));
                 }

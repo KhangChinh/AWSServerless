@@ -46,7 +46,7 @@ const mapCosmeticAssets = async (profile) => {
             RequestItems: {
                 [process.env.ITEMDATA_TABLE]: {
                     Keys: keysToFetch,
-                    ProjectionExpression: "SK, assets, imageUrl, #n",
+                    ProjectionExpression: "SK, assets, #n",
                     ExpressionAttributeNames: { "#n": "name" },
                 },
             },
@@ -54,7 +54,7 @@ const mapCosmeticAssets = async (profile) => {
     );
     const itemMap = {};
     for (const item of batchResult.Responses?.[process.env.ITEMDATA_TABLE] || []) {
-        itemMap[item.SK] = { id: item.SK, name: item.name, imageUrl: item.imageUrl, assets: item.assets };
+        itemMap[item.SK] = { id: item.SK, name: item.name, assets: item.assets };
     }
     const updatedEquipped = {};
     if (equippedCosmetics.equippedBackground) {
@@ -281,7 +281,7 @@ const handleSyncAll = async (event) => {
         }
         const promises = [];
         if (getInventory) {
-            const types = String(process.env.INVENTORY_TYPES )
+            const types = String(process.env.INVENTORY_TYPES)
                 .split(",")
                 .map(type => type.trim())
                 .filter(Boolean);

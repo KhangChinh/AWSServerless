@@ -5,5 +5,5 @@ với PK là PK từ [profile](Table/User/profile.json) và SK là SK từ [item
 *chi tiết thuộc tính:
 -PK: mã người dùng lấy từ userId của cognito
 -SK: SK từ [item](../ItemData/item.json)
--rarity, name, imageUrl, itemType được lấy trong thuật toán thêm vật phẩm
+-rarity, name, itemType được lấy trong thuật toán thêm vật phẩm
 -acquiredAt: thời điểm nhận được vật phẩm

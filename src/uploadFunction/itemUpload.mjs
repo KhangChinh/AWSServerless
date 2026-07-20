@@ -21,8 +21,6 @@ const MIME_TYPES = {
     json: 'application/json', mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg'
 };
 
-const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'];
-
 const processZip = async (event) => {
     try {
         const bucketName = event.Records[0].s3.bucket.name;
@@ -70,16 +68,13 @@ const processZip = async (event) => {
             }));
 
             // Map URL vào JSON 
-            if (parentDir !== 'assets') {
-                if (IMAGE_EXTENSIONS.includes(extension)) {
-                    itemData.imageUrl = relativeUrl;
-                }
-            } else {
+            if (parentDir === 'assets') {
                 if (extension === 'css') {
                     itemData.assets.css = relativeUrl;
                 } else if (extension === 'js') {
-                    // Xử lý .js giống hệt .css
                     itemData.assets.js = relativeUrl;
+                } else if (extension === 'jsx') {
+                    itemData.assets.jsx = relativeUrl
                 } else {
                     const fileNameWithoutExt = fileName.substring(0, fileName.lastIndexOf('.'));
                     const keyName = fileNameWithoutExt.includes('_') ? fileNameWithoutExt.split('_').pop() : fileNameWithoutExt;

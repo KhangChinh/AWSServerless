@@ -5,18 +5,26 @@
         {
             "itemId": "item#frame_stone_1",
             "name": "Khung Thạch Anh",
-            "imageUrl": "https://cloudfront.net/items/theme_cyberpunk.jpg",
             "rarity": 4,
             "itemType": "frame",
+            "assets": {
+                "css": "themes/cyberpunk/style.css",
+                "bgm": "themes/cyberpunk/music.mp3",
+                "particles": "themes/cyberpunk/effects.json"
+            },
             "currencyType": "eCoin",
             "price": 100
         },
         {
             "itemId": "item#frame_stone_2",
             "name": "Khung Obsidian",
-            "imageUrl": "https://cloudfront.net/items/theme_cyberpunk.jpg",
             "rarity": 5,
             "itemType": "frame",
+            "assets": {
+                "css": "themes/cyberpunk/style.css",
+                "bgm": "themes/cyberpunk/music.mp3",
+                "particles": "themes/cyberpunk/effects.json"
+            },
             "currencyType": "eCoin",
             "price": 2500
         }

@@ -3,7 +3,6 @@
     "SK": "bg_crimson_void",
     "rarity": 5,
     "name": "Crimson Void Background",
-    "imageUrl": "background/bg_crimson_void/bg_crimson_void.jpg",
     "assets": {
         "css": "background/bg_crimson_void/assets/bg_crimson_void.css"
     },
