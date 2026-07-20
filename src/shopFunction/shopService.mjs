@@ -30,12 +30,13 @@ const handleRefresheCoinShop = async (event) => {
             return;
         }
         const shuffled = candidates.sort(() => 0.5 - Math.random());
-        const selectedItems = shuffled.slice(0, 3).map(item => ({
+        const selectedItems = shuffled.slice(0, 5).map(item => ({
             itemId: item.SK,
             name: item.name,
             imageUrl: item.imageUrl,
             rarity: item.rarity,
             itemType: item.itemType,
+            assets: item.assets,
             currencyType: "eCoin",
             price: item.price || 99
         }));
@@ -209,6 +210,7 @@ const handleBuyeCoinItem = async (event) => {
                             SK: itemToBuy.itemId,
                             acquiredAt: new Date(now).toISOString(), // Đồng bộ định dạng ISOString với gachaService
                             itemType: itemToBuy.itemType,
+                            assets: itemToBuy.assets,
                             name: itemToBuy.name,
                             imageUrl: itemToBuy.imageUrl,
                             rarity: itemToBuy.rarity
