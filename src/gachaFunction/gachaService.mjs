@@ -2,7 +2,6 @@ import { GetCommand, PutCommand, BatchGetCommand, UpdateCommand, QueryCommand } 
 import { docClient } from "../database.mjs";
 import { successResponse } from "../response.mjs";
 import { syncedErrorResponse } from "../errorSync.mjs";
-import { getCachedMasterData } from "../cacheHelper.mjs";
 import { mapCosmeticAssets, fetchInventoryPage } from "../syncFunction/syncService.mjs";
 
 const getUserId = (event) => {
@@ -16,7 +15,7 @@ const fetchFirstPage = async (tableName, userId, limit) => {
         KeyConditionExpression: "PK = :uid",
         ExpressionAttributeValues: { ":uid": userId },
         Limit: limit,
-        ScanIndexForward: false,
+        ScanIndexForward: false, // Lấy mới nhất
     }));
     return { items: result.Items || [], lastKey: result.LastEvaluatedKey || null };
 };
@@ -24,20 +23,43 @@ const fetchFirstPage = async (tableName, userId, limit) => {
 export const handleGacha = async (event) => {
     const userId = getUserId(event);
     if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");
-
     try {
         const body = JSON.parse(event.body || "{}");
         const isx10 = body.isx10 === true;
+        const bannerId = body.bannerId; // FE BẮT BUỘC TRUYỀN LÊN (ví dụ: "banner_background")
+
+        if (!bannerId) return await syncedErrorResponse(getUserId(event), 400, "Thiếu thông tin bannerId.");
+
         const pullsCount = isx10 ? 10 : 1;
         const coreCost = pullsCount; // 1 lượt = 1 knowledgeCore
 
-        // 1. Lấy Profile
-        const profileRes = await docClient.send(new GetCommand({
-            TableName: process.env.USER_TABLE,
-            Key: { PK: userId }
-        }));
+        // 1. Kéo Profile người dùng và Dữ liệu Banner CÙNG LÚC để tối ưu tốc độ
+        const [profileRes, bannerRes] = await Promise.all([
+            docClient.send(new GetCommand({
+                TableName: process.env.USER_TABLE,
+                Key: { PK: userId }
+            })),
+            docClient.send(new GetCommand({
+                TableName: process.env.ITEMDATA_TABLE,
+                Key: { PK: "gacha", SK: bannerId }
+            }))
+        ]);
+
         const profile = profileRes.Item;
+        const banner = bannerRes.Item;
+
         if (!profile) return await syncedErrorResponse(getUserId(event), 404, "Profile not found");
+
+        const nowSeconds = Math.floor(Date.now() / 1000);
+        if (!banner || !banner.pool) {
+            return await syncedErrorResponse(getUserId(event), 400, "Banner không tồn tại hoặc dữ liệu bị lỗi.");
+        }
+        if (banner.expiresAt && banner.expiresAt < nowSeconds) {
+            return await syncedErrorResponse(getUserId(event), 400, "Banner này đã kết thúc.");
+        }
+
+        // Lấy cấu hình Rates từ Banner JSON
+        const rates = banner.rates;
 
         // 2. Kiểm tra & Trừ tài nguyên
         let budget = profile.budget || {};
@@ -55,11 +77,12 @@ export const handleGacha = async (event) => {
         }
         knowledgeCore -= coreCost; // Trừ phí gacha
 
-        // 3. Thuật toán map rarity
+        // 3. Thuật toán map rarity dựa theo thông số CỦA BANNER
         let gachaStats = profile.gachaStats || {
             is4StarGuaranteed: false, is5StarGuaranteed: false, pity4Star: 0, pity5Star: 0
         };
         const rarityMap = [];
+        const combined4StarRate = rates.base5Star + rates.base4Star; // Ví dụ: 0.01 + 0.09 = 0.10 (10% ra 4 sao hoặc 5 sao)
 
         for (let i = 0; i < pullsCount; i++) {
             gachaStats.pity4Star++;
@@ -67,17 +90,18 @@ export const handleGacha = async (event) => {
             const rand = Math.random();
             let baseRarity = 3;
 
-            // Soft/Hard pity logic cơ bản (Mặc định: 10 cho 4 sao, 80 cho 5 sao)
-            if (gachaStats.pity5Star >= 80 || rand <= 0.01) {
+            // Logic Pity sử dụng config từ JSON
+            if (gachaStats.pity5Star >= rates.pity5StarLimit || rand <= rates.base5Star) {
                 baseRarity = 5;
                 gachaStats.pity5Star = 0;
-            } else if (gachaStats.pity4Star >= 10 || rand <= 0.10) {
+            } else if (gachaStats.pity4Star >= rates.pity4StarLimit || rand <= combined4StarRate) {
                 baseRarity = 4;
                 gachaStats.pity4Star = 0;
             }
 
+            // Logic Bảo hiểm 50/50 sử dụng config từ JSON
             if (baseRarity === 5) {
-                if (gachaStats.is5StarGuaranteed || Math.random() <= 0.5) {
+                if (gachaStats.is5StarGuaranteed || Math.random() <= rates.rateUpChance) {
                     rarityMap.push(5); // Trúng rate
                     gachaStats.is5StarGuaranteed = false;
                 } else {
@@ -85,7 +109,7 @@ export const handleGacha = async (event) => {
                     gachaStats.is5StarGuaranteed = true;
                 }
             } else if (baseRarity === 4) {
-                if (gachaStats.is4StarGuaranteed || Math.random() <= 0.5) {
+                if (gachaStats.is4StarGuaranteed || Math.random() <= rates.rateUpChance) {
                     rarityMap.push(4); // Trúng rate
                     gachaStats.is4StarGuaranteed = false;
                 } else {
@@ -97,28 +121,7 @@ export const handleGacha = async (event) => {
             }
         }
 
-        // 4. Phân loại Master Data Item
-        const allItems = await getCachedMasterData(async () => {
-            const res = await docClient.send(new QueryCommand({
-                TableName: process.env.ITEMDATA_TABLE,
-                KeyConditionExpression: "PK = :pk",
-                ExpressionAttributeValues: { ":pk": "item" }
-            }));
-            return res.Items || [];
-        });
-
-        const gachaPool = allItems.filter(item => item.collectFrom === "gacha");
-        const pools = {
-            "5": gachaPool.filter(i => i.rarity === 5 && i.isLimited === true),
-            "4.5": gachaPool.filter(i => i.rarity === 5 && i.isLimited === false),
-            "4": gachaPool.filter(i => i.rarity === 4 && i.isLimited === true),
-            "3.5": gachaPool.filter(i => i.rarity === 4 && i.isLimited === false)
-        };
-        // Fallback an toàn nếu pool rỗng
-        pools["4.5"] = pools["4.5"].length ? pools["4.5"] : pools["5"];
-        pools["3.5"] = pools["3.5"].length ? pools["3.5"] : pools["4"];
-
-        // 5. Quy đổi rarityMap ra Item
+        // 4. Quy đổi rarityMap ra Item (Trực tiếp từ banner.pool, bỏ bước load MasterData)
         const pulledResults = [];
         const itemKeysToCheck = [];
 
@@ -127,14 +130,20 @@ export const handleGacha = async (event) => {
                 const randomSanity = Math.floor(Math.random() * 11) * 5 + 50; // Random 50, 55... 100
                 pulledResults.push({ type: 'sanity', amount: randomSanity, rarity: 3 });
             } else {
-                const pool = pools[code.toString()];
+                let pool = [];
+                // Chọn pool tương ứng với mã số, fallback phòng trường hợp pool standard trống
+                if (code === 5) pool = banner.pool.rateUp5;
+                else if (code === 4.5) pool = banner.pool.standard5.length ? banner.pool.standard5 : banner.pool.rateUp5;
+                else if (code === 4) pool = banner.pool.rateUp4;
+                else if (code === 3.5) pool = banner.pool.standard4.length ? banner.pool.standard4 : banner.pool.rateUp4;
+
                 const selectedItem = pool[Math.floor(Math.random() * pool.length)];
                 pulledResults.push({ type: 'item', item: selectedItem, rarity: Math.floor(code) });
                 itemKeysToCheck.push({ PK: userId, SK: selectedItem.SK });
             }
         }
 
-        // 6. Kiểm tra Inventory & Xử lý Trùng lặp
+        // 5. Kiểm tra Inventory & Xử lý Trùng lặp
         const alreadyOwned = new Set();
         if (itemKeysToCheck.length > 0) {
             const batchResult = await docClient.send(new BatchGetCommand({
@@ -147,10 +156,10 @@ export const handleGacha = async (event) => {
         const now = Date.now();
         const writePromises = [];
         const clientReturnItems = [];
-        const newInventorySkSet = new Set(); // Xử lý trường hợp trúng 2 item giống nhau trong cùng 1 x10
+        const newInventorySkSet = new Set(); // Chống duplicate trong cùng 1 lần x10
 
         pulledResults.forEach((pull, index) => {
-            const historyTimestamp = now + index; // +1 liên tục để sắp xếp đúng trên UI
+            const historyTimestamp = now + index; // +1 liên tục để UI sắp xếp đúng
             let sanityConverted = 0;
 
             if (pull.type === 'sanity') {
@@ -163,18 +172,17 @@ export const handleGacha = async (event) => {
                         PK: userId, SK: historyTimestamp,
                         name: "Sanity", rarity: 3,
                         sanityAmount: pull.amount,
-                        expiresAt: Math.floor(now / 1000) + (30 * 86400) // TTL 30 ngày cho history
+                        expiresAt: Math.floor(now / 1000) + (30 * 86400) // TTL 30 ngày
                     }
                 })));
             } else {
                 const { item, rarity } = pull;
                 const isOwned = alreadyOwned.has(item.SK) || newInventorySkSet.has(item.SK);
 
-                // Xác định đường dẫn hình ảnh dựa trên itemType và assets
                 const itemImageUrl = item.itemType === 'pet' ? item.assets?.idle : item.assets?.css;
 
                 if (isOwned) {
-                    // Trùng lặp -> Quy đổi
+                    // Trùng lặp -> Quy đổi Sanity
                     sanityConverted = rarity === 5 ? 150 : 80;
                     sanity += sanityConverted;
                     clientReturnItems.push({
@@ -201,7 +209,6 @@ export const handleGacha = async (event) => {
                             acquiredAt: new Date(now).toISOString(),
                             assets: item.assets, itemType: item.itemType,
                             name: item.name, rarity
-                            // Đã xóa trường imageUrl ở đây
                         }
                     })));
                 }
@@ -219,7 +226,7 @@ export const handleGacha = async (event) => {
             }
         });
 
-        // 7. Cập nhật Profile
+        // 6. Cập nhật Profile
         budget.knowledgeCore = knowledgeCore;
         budget.knowledgePoint = knowledgePoint;
         budget.sanity = sanity;
@@ -233,7 +240,7 @@ export const handleGacha = async (event) => {
 
         await Promise.all(writePromises);
 
-        // 8. Lấy dữ liệu mới nhất (Trang 1) của những itemType thực sự thay đổi trả về cho IngestServerData
+        // 7. Đồng bộ dữ liệu trả về cho Frontend
         profile.budget = budget;
         profile.gachaStats = gachaStats;
         const finalProfile = await mapCosmeticAssets(profile);
@@ -261,6 +268,7 @@ export const handleGacha = async (event) => {
                 })
             ));
         }
+
         const historyPage = await fetchFirstPage(process.env.GACHAHISTORY_TABLE, userId, 30);
 
         return successResponse({
