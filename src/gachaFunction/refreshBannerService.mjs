@@ -76,7 +76,7 @@ export const handleRefreshBanners = async (event) => {
                 expiresAt: expiresAt,
                 updatedAt: nowSeconds
             };
-
+            console.log(JSON.stringify(bannerData, null, 2));
             await docClient.send(new PutCommand({
                 TableName: process.env.ITEMDATA_TABLE,
                 Item: bannerData
