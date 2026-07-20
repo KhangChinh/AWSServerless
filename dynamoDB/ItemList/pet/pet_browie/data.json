@@ -1,0 +1,11 @@
+{
+  "PK": "item",
+  "SK": "pet_browie",
+  "itemType": "pet",
+  "name": "Browie",
+  "rarity": 5,
+  "currencyType": null,
+  "price": null,
+  "collectFrom": "gacha",
+  "isLimited": false
+}
