@@ -1,5 +1,5 @@
 getSudokuLevels:
-  handler: src/minigameFunction/minigameService.handleGetSudokuLevels
+  handler: src/minigameFunction/sudokuService.handleGetSudokuLevels
   events:
     - httpApi:
         path: /minigame/sudokulevels
@@ -14,8 +14,9 @@ getMinesweeperLevels:
         method: get
         authorizer:
           name: myCognitoAuth
+
 startGameSudokuSession:
-  handler: src/minigameFunction/minigameService.handleStartSudokuSession
+  handler: src/minigameFunction/sudokuService.handleStartSudokuSession
   events:
     - httpApi:
         path: /minigame/sudokulevels/start-game
@@ -30,6 +31,7 @@ startGameMinesweeperSession:
         method: post
         authorizer:
           name: myCognitoAuth
+
 revealMinesweeperCell:
   handler: src/minigameFunction/minesweeperService.handleReveal
   events:
@@ -39,7 +41,7 @@ revealMinesweeperCell:
         authorizer:
           name: myCognitoAuth
 checkSudokuBoard:
-  handler: src/minigameFunction/minigameService.handleCheckSudokuBoard
+  handler: src/minigameFunction/sudokuService.handleCheckSudokuBoard
   events:
     - httpApi:
         path: /minigame/sudokulevels/check
@@ -48,7 +50,7 @@ checkSudokuBoard:
           name: myCognitoAuth
 
 endSudokuSession:
-  handler: src/minigameFunction/minigameService.handleEndSudokuSession
+  handler: src/minigameFunction/sudokuService.handleEndSudokuSession
   events:
     - httpApi:
         path: /minigame/sudokulevels/end-session
@@ -63,6 +65,7 @@ endMinesweeperSession:
         method: post
         authorizer:
           name: myCognitoAuth
+
 getLeaderboard:
   handler: src/minigameFunction/minigameService.handleGetLeaderboard
   events:
@@ -71,12 +74,7 @@ getLeaderboard:
         method: get
         authorizer:
           name: myCognitoAuth
-leaderboardMinesweeperWorker:
-  handler: src/minigameFunction/minesweeperService.handleLeaderboardMinesweeperWorker
-  events:
-    - schedule:
-        description: Trigger update leaderboard Minesweeper moi 10 phut
-        rate: rate(10 minutes)
+
 leaderboardWorker:
   handler: src/minigameFunction/minigameService.handleLeaderboardWorker
   events:
