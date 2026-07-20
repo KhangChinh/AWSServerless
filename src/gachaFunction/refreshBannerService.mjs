@@ -11,6 +11,27 @@ const BANNER_CONFIGS = [
         durationDays: 1,
         rates: { base5Star: 0.01, base4Star: 0.09, pity5StarLimit: 80, pity4StarLimit: 10, rateUpChance: 0.5 }
     },
+    {
+        bannerId: "banner_frame",
+        bannerName: "Banner Khung Đại Diện",
+        itemType: "frame",
+        durationDays: 3,
+        rates: { base5Star: 0.01, base4Star: 0.09, pity5StarLimit: 80, pity4StarLimit: 10, rateUpChance: 0.5 }
+    },
+    {
+        bannerId: "banner_title",
+        bannerName: "Banner Trang trí Tiêu Đề",
+        itemType: "title",
+        durationDays: 1,
+        rates: { base5Star: 0.01, base4Star: 0.09, pity5StarLimit: 80, pity4StarLimit: 10, rateUpChance: 0.75 }
+    },
+    {
+        bannerId: "banner_pet",
+        bannerName: "Banner Thú cưng",
+        itemType: "pet",
+        durationDays: 7,
+        rates: { base5Star: 0.01, base4Star: 0.09, pity5StarLimit: 80, pity4StarLimit: 10, rateUpChance: 0.5 }
+    },
 ];
 
 const shuffleArray = (array) => [...array].sort(() => 0.5 - Math.random());
