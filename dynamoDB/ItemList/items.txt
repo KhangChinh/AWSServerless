@@ -10,7 +10,6 @@ Cấu trúc:
 
 default/
 ├── assets/
-├── default.png
 └── data.json
 
 2. Trong thư mục assets:
@@ -25,8 +24,7 @@ assets/
 Ví dụ với SK = "gold_frame":
 
 assets/
-├── gold_frame.css
-└── gold_frame.png
+└── gold_frame.css
 
 3. File data.json:
 - Tên file luôn là "data.json".
