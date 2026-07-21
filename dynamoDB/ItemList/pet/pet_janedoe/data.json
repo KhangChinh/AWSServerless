@@ -1,0 +1,11 @@
+{
+  "PK": "item",
+  "SK": "pet_janedoe",
+  "itemType": "pet",
+  "name": "Jane Doe",
+  "rarity": 5,
+  "currencyType": null,
+  "price": null,
+  "collectFrom": "gacha",
+  "isLimited": true
+}
