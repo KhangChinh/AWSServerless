@@ -1,0 +1,11 @@
+{
+  "PK": "item",
+  "SK": "pet_icabell",
+  "itemType": "pet",
+  "name": "Icabell",
+  "rarity": 5,
+  "currencyType": "eCoin",
+  "price": 1900,
+  "collectFrom": "eCoinShop",
+  "isLimited": true
+}
