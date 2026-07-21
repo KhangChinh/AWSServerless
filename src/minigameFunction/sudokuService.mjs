@@ -455,9 +455,9 @@ const handleEndSudokuSession = async (event) => {
         const level = levelRes.Item;
         const emptyCellsCount = level.baseMapConfig.emptyCellsCount;
         const timeSpentSeconds = Math.floor((now - session.startTime) / 1000);
-
+        const effectivePenaltyTime = Math.max(0, timeSpentSeconds - emptyCellsCount * 5);
         // Công thức tính điểm
-        let score = level.maxScoreCap * (1 - Math.floor((timeSpentSeconds - emptyCellsCount * 5) / 10) * 0.01);
+        let score = level.maxScoreCap * (1 - Math.floor(effectivePenaltyTime / 10) * 0.01);
         if (score < Math.floor(level.maxScoreCap * 0.1)) score = Math.floor(level.maxScoreCap * 0.1); // Điểm sàn 10%
 
         let eCoinReward = level.eCoin || 0;
