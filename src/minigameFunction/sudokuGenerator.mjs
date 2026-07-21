@@ -23,15 +23,18 @@ const shuffle = (array) => {
     return array;
 };
 
-const fillGrid = (grid) => {
-    for (let row = 0; row < 9; row++) {
-        for (let col = 0; col < 9; col++) {
+const fillGrid = (grid, size, blockRows, blockCols) => {
+    // Tạo mảng số động dựa trên size (VD size = 6 -> [1,2,3,4,5,6])
+    const numList = Array.from({ length: size }, (_, i) => i + 1);
+
+    for (let row = 0; row < size; row++) {
+        for (let col = 0; col < size; col++) {
             if (grid[row][col] === 0) {
-                const numbers = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+                const numbers = shuffle([...numList]);
                 for (let num of numbers) {
-                    if (isValid(grid, row, col, num)) {
+                    if (isValid(grid, row, col, num, size, blockRows, blockCols)) {
                         grid[row][col] = num;
-                        if (fillGrid(grid)) return true;
+                        if (fillGrid(grid, size, blockRows, blockCols)) return true;
                         grid[row][col] = 0;
                     }
                 }
@@ -46,9 +49,23 @@ const fillGrid = (grid) => {
 export const generateSudokuBoard = (baseMapConfig) => {
     // Note: 'seed' ở đây đóng vai trò như Board ID, không điều khiển Math.random
     const boardId = crypto.randomBytes(8).toString('hex');
+    // Phân tích baseMapConfig để lấy cấu hình động, fallback về 9x9 nếu không có
+    const size = baseMapConfig.size || 9; // vd: 6 hoặc 9
 
-    let grid = Array.from({ length: 9 }, () => Array(9).fill(0));
-    fillGrid(grid);
+    // Setup kích thước block tùy theo loại Sudoku
+    let blockRows = 3, blockCols = 3;
+    if (size === 6) {
+        blockRows = 2; // 6x6 có block là 2 hàng x 3 cột
+        blockCols = 3;
+    } else if (size === 9) {
+        blockRows = 3;
+        blockCols = 3;
+    }
+
+    // Khởi tạo grid động theo size
+    let grid = Array.from({ length: size }, () => Array(size).fill(0));
+    // Điền số
+    fillGrid(grid, size, blockRows, blockCols);
 
     const solutionGrid = grid.flat().join('');
 
