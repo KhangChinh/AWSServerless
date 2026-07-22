@@ -161,7 +161,7 @@ export const handleGacha = async (event) => {
                 else if (code === 3.5) pool = banner.pool.standard4.length ? banner.pool.standard4 : banner.pool.rateUp4;
 
                 const selectedItem = pool[Math.floor(Math.random() * pool.length)];
-                pulledResults.push({ type: 'item', item: selectedItem, rarity: Math.floor(code) });
+                pulledResults.push({ type: 'item', item: selectedItem, rarity: Math.ceil(code) });
                 itemKeysToCheck.push({ PK: userId, SK: selectedItem.SK });
             }
         }
@@ -169,8 +169,14 @@ export const handleGacha = async (event) => {
         // 5. Kiểm tra Inventory & Xử lý Trùng lặp
         const alreadyOwned = new Set();
         if (itemKeysToCheck.length > 0) {
+            // BatchGetItem rejects duplicate keys. A x10 pull can legitimately
+            // select the same reward more than once, so only deduplicate the
+            // inventory lookup while preserving every entry in pulledResults.
+            const uniqueItemKeys = Array.from(new Map(
+                itemKeysToCheck.map(key => [`${key.PK}:${key.SK}`, key])
+            ).values());
             const batchResult = await docClient.send(new BatchGetCommand({
-                RequestItems: { [process.env.INVENTORY_TABLE]: { Keys: itemKeysToCheck } }
+                RequestItems: { [process.env.INVENTORY_TABLE]: { Keys: uniqueItemKeys } }
             }));
             const existingItems = batchResult.Responses?.[process.env.INVENTORY_TABLE] || [];
             existingItems.forEach(i => alreadyOwned.add(i.SK));
