@@ -67,10 +67,10 @@ const handleInitUser = async (event) => {
             avatarUrl: process.env.DEFAULT_AVATAR_URL,
         },
         budget: {
-            knowledgePoint: 1500,
-            knowledgeCore: 0,
-            sanity: 0,
-            eCoin: 0,
+            knowledgePoint: 15000,
+            knowledgeCore: 10,
+            sanity: 99999,
+            eCoin: 99999,
         },
         studyStats: {
             rankScore: 0,
