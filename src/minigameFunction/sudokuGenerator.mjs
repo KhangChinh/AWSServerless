@@ -52,17 +52,27 @@ const fillGrid = (grid, size, blockRows, blockCols) => {
 export const generateSudokuBoard = (baseMapConfig) => {
     // Note: 'seed' ở đây đóng vai trò như Board ID, không điều khiển Math.random
     const boardId = crypto.randomBytes(8).toString('hex');
+    
     // Phân tích baseMapConfig để lấy cấu hình động, fallback về 9x9 nếu không có
-    const size = baseMapConfig.size || 9; // vd: 6 hoặc 9
+    let size = parseInt(baseMapConfig.gridSize || baseMapConfig.size || 9, 10);
 
     // Setup kích thước block tùy theo loại Sudoku
     let blockRows = 3, blockCols = 3;
     if (size === 6) {
-        blockRows = 2; // 6x6 có block là 2 hàng x 3 cột
+        blockRows = 2;
         blockCols = 3;
-    } else if (size === 9) {
+    } else if (size === 4) {
+        blockRows = 2;
+        blockCols = 2;
+    } else if (size === 12) {
         blockRows = 3;
-        blockCols = 3;
+        blockCols = 4;
+    } else if (size === 16) {
+        blockRows = 4;
+        blockCols = 4;
+    } else {
+        blockRows = Math.floor(Math.sqrt(size));
+        blockCols = Math.ceil(size / blockRows);
     }
 
     // Khởi tạo grid động theo size
@@ -70,15 +80,19 @@ export const generateSudokuBoard = (baseMapConfig) => {
     // Điền số
     fillGrid(grid, size, blockRows, blockCols);
 
-    const solutionGrid = grid.flat().join('');
+    const solutionGrid = grid.flat().map(n => n.toString(36).toUpperCase()).join('');
 
     // Đục lỗ: Clone mảng để không ảnh hưởng grid gốc, giữ nguyên kiểu Number
     let puzzleGridArray = [...grid.flat()];
     let emptyCells = baseMapConfig.emptyCellsCount || 30;
 
     let holesMade = 0;
+    const maxCells = size * size;
+    // Chống lặp vô hạn nếu số ô trống yêu cầu lớn hơn hoặc bằng tổng số ô
+    if (emptyCells >= maxCells) emptyCells = maxCells - 1;
+
     while (holesMade < emptyCells) {
-        let randomIndex = Math.floor(Math.random() * 81);
+        let randomIndex = Math.floor(Math.random() * maxCells);
         // Kiểm tra xem vị trí đó đã bị đục lỗ (số 0) chưa
         if (puzzleGridArray[randomIndex] !== 0) {
             puzzleGridArray[randomIndex] = 0;
@@ -86,7 +100,7 @@ export const generateSudokuBoard = (baseMapConfig) => {
         }
     }
 
-    const puzzleGrid = puzzleGridArray.join('');
+    const puzzleGrid = puzzleGridArray.map(n => n.toString(36).toUpperCase()).join('');
 
     return {
         seed: boardId, // Giữ key là seed để map với logic cũ của bạn
