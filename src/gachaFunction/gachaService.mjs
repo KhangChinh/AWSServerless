@@ -29,6 +29,19 @@ const fetchFirstPage = async (tableName, userId, limit) => {
     return { items: result.Items || [], lastKey: result.LastEvaluatedKey || null };
 };
 
+export const handleGetGachaBanners = async (event) => {
+    const userId = getUserId(event);
+    if (!userId) return await syncedErrorResponse(null, 401, 'Unauthorized');
+    try {
+        const query = { TableName: process.env.ITEMDATA_TABLE, KeyConditionExpression: 'PK = :pk',
+            ExpressionAttributeValues: { ':pk': 'gacha' } };
+        const result = await docClient.send(new QueryCommand(query));
+        return successResponse({ banners: result.Items || [] });
+    } catch (error) {
+        return await syncedErrorResponse(userId, 500, error.message);
+    }
+};
+
 export const handleGacha = async (event) => {
     const userId = getUserId(event);
     if (!userId) return await syncedErrorResponse(getUserId(event), 401, "Unauthorized");

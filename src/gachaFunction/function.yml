@@ -7,6 +7,15 @@ gacha:
         authorizer:
           name: myCognitoAuth
 
+getGachaBanners:
+  handler: src/gachaFunction/gachaService.handleGetGachaBanners
+  events:
+    - httpApi:
+        path: /gacha/banners
+        method: get
+        authorizer:
+          name: myCognitoAuth
+
 refreshGachaBanners:
   handler: src/gachaFunction/refreshBannerService.handleRefreshBanners
   events:
