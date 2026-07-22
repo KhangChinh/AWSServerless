@@ -1,14 +1,17 @@
 import crypto from 'crypto';
 
 // --- CÁC HÀM HỖ TRỢ ---
-const isValid = (grid, row, col, num) => {
-    for (let x = 0; x < 9; x++) {
+const isValid = (grid, row, col, num, size, blockRows, blockCols) => {
+    // Kiểm tra hàng và cột
+    for (let x = 0; x < size; x++) {
         if (grid[row][x] === num || grid[x][col] === num) return false;
     }
-    const startRow = row - (row % 3);
-    const startCol = col - (col % 3);
-    for (let i = 0; i < 3; i++) {
-        for (let j = 0; j < 3; j++) {
+
+    // Kiểm tra trong block (khối vuông/chữ nhật nhỏ)
+    const startRow = row - (row % blockRows);
+    const startCol = col - (col % blockCols);
+    for (let i = 0; i < blockRows; i++) {
+        for (let j = 0; j < blockCols; j++) {
             if (grid[i + startRow][j + startCol] === num) return false;
         }
     }

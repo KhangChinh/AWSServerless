@@ -249,7 +249,7 @@ const handleStartMinesweeperSession = async (event) => {
                 sessionId: sessionItem.SK,
                 seed: sessionItem.seed,
                 checkCount: sessionItem.checkCount,
-                puzzleGrid: puzzleGrid, // Gửi về toàn chữ H
+                puzzleGrid: puzzleGrid,
                 status: sessionItem.status
             },
             baseMapConfig: level.baseMapConfig
