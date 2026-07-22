@@ -11,5 +11,5 @@ refreshGachaBanners:
   handler: src/gachaFunction/refreshBannerService.handleRefreshBanners
   events:
     - schedule: 
-        description: Quét và làm mới các banner Gacha hết hạn mỗi đêm
-        rate: cron(0 17 * * ? *)
+        description: Quét và làm mới các banner Gacha hết hạn mỗi nửa ngày
+        rate: rate(12 hours)
