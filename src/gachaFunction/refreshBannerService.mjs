@@ -8,28 +8,28 @@ const BANNER_CONFIGS = [
         bannerId: "banner_background",
         bannerName: "Banner Hình Nền Thường Nhật",
         itemType: "background",
-        durationDays: 1,
+        durationDays: 30,
         rates: { base5Star: 0.01, base4Star: 0.09, pity5StarLimit: 80, pity4StarLimit: 10, rateUpChance: 0.5 }
     },
     {
         bannerId: "banner_frame",
         bannerName: "Banner Khung Đại Diện",
         itemType: "frame",
-        durationDays: 3,
+        durationDays: 30,
         rates: { base5Star: 0.01, base4Star: 0.09, pity5StarLimit: 80, pity4StarLimit: 10, rateUpChance: 0.5 }
     },
     {
         bannerId: "banner_title",
         bannerName: "Banner Trang trí Tiêu Đề",
         itemType: "title",
-        durationDays: 1,
+        durationDays: 30,
         rates: { base5Star: 0.01, base4Star: 0.09, pity5StarLimit: 80, pity4StarLimit: 10, rateUpChance: 0.75 }
     },
     {
         bannerId: "banner_pet",
         bannerName: "Banner Thú cưng",
         itemType: "pet",
-        durationDays: 7,
+        durationDays: 30,
         rates: { base5Star: 0.01, base4Star: 0.09, pity5StarLimit: 80, pity4StarLimit: 10, rateUpChance: 0.5 }
     },
 ];
@@ -50,7 +50,8 @@ export const handleRefreshBanners = async (event) => {
             }));
             const existingBanner = existingBannerRes.Item;
             // Nếu banner vẫn còn hạn (tính theo giây) -> Bỏ qua, không làm mới
-            if (existingBanner && existingBanner.expiresAt && existingBanner.expiresAt > nowSeconds) {
+            // Thêm buffer 5 phút (300s) đề phòng cron trigger chạy sớm vài giây
+            if (existingBanner && existingBanner.expiresAt && existingBanner.expiresAt > nowSeconds + 300) {
                 console.log(`-> Banner ${config.bannerId} vẫn còn hạn đến timestamp ${existingBanner.expiresAt}. Bỏ qua.`);
                 continue;
             }
@@ -78,7 +79,7 @@ export const handleRefreshBanners = async (event) => {
             // 6. Tính thời gian hết hạn mới dựa theo durationDays
             const nextExpire = new Date();
             nextExpire.setUTCDate(nextExpire.getUTCDate() + config.durationDays);
-            nextExpire.setUTCHours(0, 0, 0, 0); // Đưa về 0h00 UTC của ngày hết hạn
+            nextExpire.setUTCHours(17, 0, 0, 0); // Đưa về 17h00 UTC (0h00 VN) của ngày hết hạn
             const expiresAt = Math.floor(nextExpire.getTime() / 1000);
             // 7. Tạo Object JSON và ghi đè
             const bannerData = {

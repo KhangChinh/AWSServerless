@@ -39,10 +39,10 @@ const handleRefresheCoinShop = async (event) => {
             currencyType: "eCoin",
             price: item.price || 99
         }));
-        // 4. Tính toán expiresAt (00:00:00 UTC ngày hôm sau)
+        // 4. Tính toán expiresAt (17:00:00 UTC tức 00:00 VN ngày tiếp theo)
         const now = new Date();
         now.setUTCDate(now.getUTCDate() + 7);
-        now.setUTCHours(0, 0, 0, 0);
+        now.setUTCHours(17, 0, 0, 0); // Đưa về 17:00 UTC (0h00 VN)
         const expiresAt = Math.floor(now.getTime() / 1000);
         // 5. Chuẩn bị Object Shop để ghi đè
         const shopData = {
